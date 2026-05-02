@@ -188,14 +188,31 @@ body.nav-open .nav-toggle__line:nth-child(3) {
   .nav-link:hover { color: var(--accent); }
 }
 
+/* Nav links read like prose without an affordance, so each one gets
+   a 1px dotted underline at rest (using --rule, low contrast) plus
+   a tiny vertical padding so it has a real hit area. Hover and the
+   currently-active page replace the dotted underline with a solid
+   teal one — same shape, stronger material — so the transition
+   feels like the link "settling in" rather than morphing. */
 .nav-link {
   font-family: var(--mono);
   font-size: 13px;
   color: var(--ink-soft);
   letter-spacing: 0.04em;
   text-transform: lowercase;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--rule);
+  transition: color 100ms ease, border-color 100ms ease, border-style 0ms;
 }
-.nav-link:hover { color: var(--accent); }
+.nav-link:hover {
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent);
+}
+.nav-link--active {
+  color: var(--ink);
+  border-bottom: 1px solid var(--accent);
+}
+.nav-link--active:hover { color: var(--accent); }
 
 .flash {
   padding: 12px 16px;
@@ -335,6 +352,70 @@ body.nav-open .nav-toggle__line:nth-child(3) {
   border-color: var(--accent);
 }
 .field input[type="file"] { padding: 8px; }
+
+/* Custom file picker. Native <input type="file"> renders an OS-styled
+   button that breaks the rest of the app's mono/dark aesthetic
+   (varies between macOS, Windows, Linux). The wrapping <label>
+   becomes our visible chrome; the real <input> stays in the DOM
+   for form submission and validation but is clipped out of view.
+   Filename is surfaced in mono via JS (see filepicker.js). */
+.filepicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 100ms ease;
+}
+.filepicker:hover { border-color: rgba(124, 196, 184, 0.45); }
+.filepicker:focus-within { border-color: var(--accent); }
+.filepicker__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.filepicker__action {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--rule);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--bg);
+  transition: border-color 100ms ease, color 100ms ease;
+}
+.filepicker:hover .filepicker__action { border-color: var(--accent); color: var(--accent); }
+.filepicker__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filepicker--has-file .filepicker__name { color: var(--ink); }
+.filepicker__dot {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  opacity: 0.5;
+}
+.filepicker__hint {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
 
 .checkbox {
   display: flex;
@@ -638,11 +719,14 @@ body.modal-open { overflow: hidden; }
 }
 .empty-state .lede { margin: 0; }
 
-/* Ghost / inline buttons */
+/* Ghost / inline buttons. Border is a touch brighter than --rule so
+   the button reads as clickable instead of vanishing into the
+   surface — the dotted divider colour was too low-contrast for
+   secondary actions like "clear credentials" or "refresh garage". */
 .btn--ghost {
   background: transparent;
   color: var(--ink-soft);
-  border: 1px solid var(--rule);
+  border: 1px solid rgba(138, 139, 142, 0.32);
   padding: 6px 10px;
   font-size: 12px;
   margin-left: 6px;
@@ -741,9 +825,123 @@ body.modal-open { overflow: hidden; }
   letter-spacing: 0.02em;
 }
 
-.ledger--linking td { padding: 14px 16px 14px 0; }
-.ledger-row--ignored td { opacity: 0.45; }
-.ledger-row--ignored td .caption-mono { opacity: 0.7; }
+.ledger--linking th,
+.ledger--linking td { padding: 14px 24px 14px 4px; }
+.ledger--linking th:first-child,
+.ledger--linking td:first-child { padding-left: 18px; }
+.ignored-remotes__list { padding: 0 4px 0 18px; }
+.ignored-remotes__heading { padding-left: 18px; }
+.ledger--linking td:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Locked-in linked state. When a remote vehicle is already linked
+   the row swaps the live dropdown + save for a static summary that
+   reads as "settled" instead of "needs attention": teal arrow
+   prefix, ink-colored target name (not the soft-gray of pending
+   actions), no chevron. The "change" link sits next to it for
+   re-edits — same visual weight as "ignore" so neither competes
+   with primary actions on rows that aren't yet linked. */
+/* The HTML `hidden` attribute is supposed to set display:none, but
+   `.inline-form { display: inline-flex }` and similar specific
+   rules override it. Make `[hidden]` win regardless of element. */
+[hidden] { display: none !important; }
+
+.link-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink);
+  padding: 4px 0;
+}
+.link-summary__arrow {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.link-summary__target {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact "ignore" / "restore" hyperlink button. Sits next to the
+   primary save action without competing with it for visual weight —
+   ignoring a remote vehicle is a side action, not the main path. */
+.link-action {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: color 100ms ease, border-color 100ms ease;
+}
+.link-action:hover { color: var(--accent); border-bottom-color: rgba(124, 196, 184, 0.35); }
+.link-action:focus-visible { outline: none; color: var(--accent); border-bottom-color: var(--accent); }
+.inline-form--ignore { display: inline-flex; }
+
+/* The ignored block. Tucked at the bottom of the linking section,
+   one rule's worth of separation, smaller mono type, and a
+   single-line layout per row — visual weight is intentionally
+   below the eye-line so the live linking decisions dominate. */
+.ignored-remotes {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.ignored-remotes__heading {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ignored-remotes__count {
+  font-size: 10px;
+  color: var(--ink-soft);
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.ignored-remotes__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ignored-remotes__item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 14px;
+  padding: 6px 0;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.ignored-remotes__name {
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ignored-remotes__uuid {
+  color: var(--ink-soft);
+  opacity: 0.5;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* Per-row provenance glyph on the fillups ledger. ↻ = synced from
    GasBuddy, ✎ = added manually. Visual weight kept low so the

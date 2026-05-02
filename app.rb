@@ -408,25 +408,43 @@ module GasMoney
         redirect "/sync"
       end
 
-      remote_row = GasbuddyRemoteVehicle.find_by(uuid: remote_uuid)
-
-      # The dropdown encodes three states into a single field:
-      # "" = unlinked, "ignore" = explicitly ignored, anything else
-      # = local Vehicle id. Reset any prior link to keep the
-      # remote↔local relation one-to-one.
+      # Reset any prior link so the remote↔local relation stays
+      # one-to-one. "" = unlinked, anything else = local Vehicle id.
       Vehicle.where(gasbuddy_uuid: remote_uuid).update_all(gasbuddy_uuid: nil)
 
-      case target_id
-      when ""
-        remote_row&.update!(ignored: false)
+      if target_id.empty?
         set_flash(:success, "Unlinked.")
-      when "ignore"
-        remote_row&.update!(ignored: true)
-        set_flash(:success, "Marked ignored — sync will skip this vehicle.")
       else
-        remote_row&.update!(ignored: false)
         Vehicle.where(id: target_id.to_i).update_all(gasbuddy_uuid: remote_uuid)
         set_flash(:success, "Vehicle linked.")
+      end
+      redirect "/sync"
+    end
+
+    post "/sync/vehicles/ignore" do
+      remote_uuid = params["remote_uuid"].to_s
+      remote = GasbuddyRemoteVehicle.find_by(uuid: remote_uuid)
+      if remote
+        # Ignoring also clears any link — sync wouldn't touch it
+        # anyway, and leaving a stale link around makes the linking
+        # UI lie about the row's state.
+        Vehicle.where(gasbuddy_uuid: remote_uuid).update_all(gasbuddy_uuid: nil)
+        remote.update!(ignored: true)
+        set_flash(:success, "Ignored #{remote.display_name}. Sync will skip it.")
+      else
+        set_flash(:error, "Remote vehicle not found.")
+      end
+      redirect "/sync"
+    end
+
+    post "/sync/vehicles/restore" do
+      remote_uuid = params["remote_uuid"].to_s
+      remote = GasbuddyRemoteVehicle.find_by(uuid: remote_uuid)
+      if remote
+        remote.update!(ignored: false)
+        set_flash(:success, "Restored #{remote.display_name}.")
+      else
+        set_flash(:error, "Remote vehicle not found.")
       end
       redirect "/sync"
     end

@@ -27,6 +27,8 @@
   <script src="/select.js" defer></script>
   <script src="/confirm.js" defer></script>
   <script src="/nav.js" defer></script>
+  <script src="/link-edit.js" defer></script>
+  <script src="/filepicker.js" defer></script>
   <script src="/pwa-refresh.js" defer></script>
   <script>
     // Service worker registration. The worker only caches the static
@@ -54,11 +56,13 @@
         <span class="nav-toggle__line" aria-hidden="true"></span>
         <span class="nav-toggle__line" aria-hidden="true"></span>
       </button>
+      <% nav_path = request.path_info.to_s %>
+      <% nav_active = ->(prefix) { nav_path == prefix || nav_path.start_with?("#{prefix}/") } %>
       <nav class="nav" id="primary-nav">
-        <a href="/vehicles" class="nav-link">Vehicles</a>
-        <a href="/saved_trips" class="nav-link">Saved trips</a>
-        <a href="/sync" class="nav-link">Sync</a>
-        <a href="/import" class="nav-link">Import logs</a>
+        <a href="/vehicles"    class="nav-link<%= ' nav-link--active' if nav_active.call('/vehicles') %>">Vehicles</a>
+        <a href="/saved_trips" class="nav-link<%= ' nav-link--active' if nav_active.call('/saved_trips') %>">Saved trips</a>
+        <a href="/sync"        class="nav-link<%= ' nav-link--active' if nav_active.call('/sync') %>">Sync</a>
+        <a href="/import"      class="nav-link<%= ' nav-link--active' if nav_active.call('/import') %>">Import logs</a>
       </nav>
     </header>
 

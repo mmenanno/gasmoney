@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-02
+
+### Changed
+
+- "Ignore" is no longer an option in the Vehicle linking dropdown. The dropdown is for linking only; ignoring is a side action — small `ignore` link button next to `save` on each active row, and the affected row moves to a compact "Ignored" footnote at the bottom of the section. Two new endpoints (`POST /sync/vehicles/ignore`, `POST /sync/vehicles/restore`) replace the dropdown's `vehicle_id=ignore` shortcut.
+- Linked rows now show a "locked-in" summary (`→ {local vehicle} change ignore`) instead of a live dropdown + save button. Live editing is still one click away via the `change` link, but the rest state communicates "this is settled" instead of looking like a pending action.
+- Main nav links now read as links at rest. Each one carries a 1px dotted underline (using `--rule`) plus a few pixels of vertical hit-area; hover and the currently-active page promote it to a solid teal underline. The active page also gets ink-colour text instead of soft-grey, so you always know where you are without reading the URL.
+- Ghost buttons (`clear credentials`, `refresh garage`, `clear log`, etc.) get a slightly more visible border. The previous `--rule` colour was nearly invisible against the page background; it now uses `rgba(138,139,142,0.32)` so the affordance reads as clickable.
+- "Vehicle linking" rows have left padding now. Vehicle name + UUID were sitting flush against the section edge.
+
+### Added
+
+- Custom file picker on `/import`. Replaces the OS-native file input chrome with the rest of the app's mono/dark language: a `choose file` pill, the selected filename in mono (or a "no file chosen" placeholder), and a tabular `CSV` hint on the right. Native input stays in the DOM for form submission and validation; only the chrome is swapped.
+
+### Removed
+
+- "← back to dashboard" / "← back to vehicles" links at the bottom of `/import`, `/saved_trips`, `/vehicles`, and per-vehicle fillups pages. The main nav lives in the topbar; these were leftovers from earlier without it.
+
 ## [0.9.0] - 2026-05-02
 
 ### Added

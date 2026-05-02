@@ -21,15 +21,20 @@
           <input type="hidden" name="vehicle_id" value="<%= vehicles.first.id %>" required>
         </div>
       </div>
-      <label class="field">
+      <div class="field">
         <span class="field__label">CSV file</span>
-        <input type="file" name="file" accept=".csv" required>
-      </label>
+        <label class="filepicker" data-filepicker>
+          <input type="file" name="file" accept=".csv" required class="filepicker__input" data-filepicker-input>
+          <span class="filepicker__action" aria-hidden="true">choose file</span>
+          <span class="filepicker__name" data-filepicker-name>no file chosen</span>
+          <span class="filepicker__dot" aria-hidden="true">·</span>
+          <span class="filepicker__hint" aria-hidden="true">CSV</span>
+        </label>
+      </div>
       <button type="submit" class="btn btn--primary">Import</button>
     </form>
   <% else %>
     <p class="empty">Add a <a href="/vehicles" class="link-accent">vehicle</a> first.</p>
   <% end %>
 
-  <p class="back"><a href="/" class="nav-link">← back to dashboard</a></p>
 </section>

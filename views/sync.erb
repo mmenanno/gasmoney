@@ -73,60 +73,96 @@
       </form>
     <% end %>
   </div>
+  <% active_remotes  = @remote_vehicles.reject(&:ignored) %>
+  <% ignored_remotes = @remote_vehicles.select(&:ignored) %>
   <% if @remote_vehicles.empty? %>
     <p class="lede">
       No remote vehicle list yet —
       <% if @setting.credentials_present? %>
         click <strong>Refresh garage</strong> to fetch the list of vehicles on your GasBuddy account.
-        Once loaded, link each remote vehicle to a local one (or mark ignored) and run a sync.
+        Once loaded, link each remote vehicle to a local one (or set aside ones you don't care about) and run a sync.
       <% else %>
         save GasBuddy credentials first, then refresh the garage.
       <% end %>
     </p>
   <% else %>
-    <p class="lede">Map each GasBuddy vehicle to a local one. Unlinked vehicles are skipped each sync; ignored vehicles stay skipped permanently.</p>
-    <table class="ledger ledger--linking">
-      <thead>
-        <tr>
-          <th>GasBuddy vehicle</th>
-          <th>Linked to</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @remote_vehicles.each do |remote| %>
-          <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote.uuid } %>
-          <% current_value = if linked then linked.id.to_s
-                             elsif remote.ignored then "ignore"
-                             else "" end %>
-          <% selected_label = if linked then linked.display_name
-                              elsif remote.ignored then "— ignored —"
-                              else "— not linked —" end %>
-          <tr class="<%= 'ledger-row--ignored' if remote.ignored && !linked %>">
-            <td><%= h(remote.display_name) %><br><span class="caption-mono"><%= h(remote.uuid) %></span></td>
-            <td>
-              <form action="/sync/vehicles/link" method="post" class="inline-form inline-form--link">
-                <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
-                <div class="select" data-select>
-                  <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="select__value"><%= h(selected_label) %></span>
-                    <span class="select__chevron" aria-hidden="true"></span>
-                  </button>
-                  <ul class="select__list" role="listbox" hidden>
-                    <li class="select__option<%= ' select__option--selected' if current_value == '' %>" role="option" data-value="">— not linked —</li>
-                    <li class="select__option<%= ' select__option--selected' if current_value == 'ignore' %>" role="option" data-value="ignore">— ignored —</li>
-                    <% @local_vehicles.each do |v| %>
-                      <li class="select__option<%= ' select__option--selected' if current_value == v.id.to_s %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
-                    <% end %>
-                  </ul>
-                  <input type="hidden" name="vehicle_id" value="<%= h(current_value) %>">
-                </div>
-                <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
-              </form>
-            </td>
+    <p class="lede">Map each GasBuddy vehicle to a local one. Unlinked vehicles are skipped each sync; ignored vehicles are tucked out of the way and stay skipped.</p>
+    <% if active_remotes.any? %>
+      <table class="ledger ledger--linking">
+        <thead>
+          <tr>
+            <th>GasBuddy vehicle</th>
+            <th>Linked to</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% active_remotes.each do |remote| %>
+            <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote.uuid } %>
+            <% current_value = linked ? linked.id.to_s : "" %>
+            <% selected_label = linked ? linked.display_name : "— not linked —" %>
+            <tr>
+              <td><%= h(remote.display_name) %><br><span class="caption-mono"><%= h(remote.uuid) %></span></td>
+              <td data-link-cell>
+                <% if linked %>
+                  <div class="link-summary" data-link-summary>
+                    <span class="link-summary__arrow" aria-hidden="true">→</span>
+                    <span class="link-summary__target"><%= h(linked.display_name) %></span>
+                  </div>
+                <% end %>
+                <form action="/sync/vehicles/link" method="post"
+                      class="inline-form inline-form--link"
+                      data-link-form
+                      <%= 'hidden' if linked %>>
+                  <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
+                  <div class="select" data-select>
+                    <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="select__value"><%= h(selected_label) %></span>
+                      <span class="select__chevron" aria-hidden="true"></span>
+                    </button>
+                    <ul class="select__list" role="listbox" hidden>
+                      <li class="select__option<%= ' select__option--selected' if current_value == '' %>" role="option" data-value="">— not linked —</li>
+                      <% @local_vehicles.each do |v| %>
+                        <li class="select__option<%= ' select__option--selected' if current_value == v.id.to_s %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
+                      <% end %>
+                    </ul>
+                    <input type="hidden" name="vehicle_id" value="<%= h(current_value) %>">
+                  </div>
+                  <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
+                </form>
+                <% if linked %>
+                  <button type="button" class="link-action" data-link-edit>change</button>
+                <% end %>
+                <form action="/sync/vehicles/ignore" method="post" class="inline-form inline-form--ignore"
+                      data-confirm="Ignore <%= h(remote.display_name) %>? Sync will skip it permanently until you restore it."
+                      data-confirm-action="Ignore"
+                      data-confirm-tone="danger">
+                  <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
+                  <button type="submit" class="link-action" aria-label="Ignore <%= h(remote.display_name) %>">ignore</button>
+                </form>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <% if ignored_remotes.any? %>
+      <div class="ignored-remotes" aria-label="Ignored GasBuddy vehicles">
+        <p class="ignored-remotes__heading">Ignored<span class="ignored-remotes__count"><%= ignored_remotes.size %></span></p>
+        <ul class="ignored-remotes__list">
+          <% ignored_remotes.each do |remote| %>
+            <li class="ignored-remotes__item">
+              <span class="ignored-remotes__name"><%= h(remote.display_name) %></span>
+              <span class="ignored-remotes__uuid"><%= h(remote.uuid[0, 8]) %></span>
+              <form action="/sync/vehicles/restore" method="post" class="inline-form">
+                <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
+                <button type="submit" class="link-action">restore</button>
+              </form>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
   <% end %>
 </section>
 
