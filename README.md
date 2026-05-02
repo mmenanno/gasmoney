@@ -13,7 +13,9 @@ A self-hosted, single-screen calculator that estimates the gas cost of any trip 
 - **Saved trips**: name a route once (e.g. "Commute", "Cottage"), pick it from a dropdown to pre-fill the form for any vehicle / date.
 - **Vehicle management**: add the vehicles you actually drive; pin a subset to the dashboard for the at-a-glance "$/km latest" + "$/km 5-fillup average" tiles.
 - **CSV import** of GasBuddy exports with row-level dedup on `(vehicle, timestamp, odometer, quantity)` so re-importing the same file is a no-op.
-- **Auto-sync from GasBuddy** (optional): once a day at midnight UTC plus a manual button. Runs through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) instance to clear Cloudflare's challenge, then talks to GasBuddy's GraphQL endpoint with the captured session cookies. New entries import automatically; existing manually-imported fillups that match an incoming entry are linked rather than duplicated.
+- **Auto-sync from GasBuddy** (optional): once a day at midnight UTC plus a manual button. Bundles a headless Chromium that drives the actual login form (Cloudflare's JS challenge solves naturally), captures the resulting cookies, and uses them for plain Faraday GraphQL calls. New entries import automatically; existing manually-imported fillups that match an incoming entry are linked rather than duplicated.
+- **Backfill prior years**: a separate button on the Sync page that walks GasBuddy year-by-year back to 2010, stopping after two consecutive empty years. Useful for the first run on a long-existing GasBuddy account; subsequent regular syncs only need to keep the current year up to date.
+- **Manual fillup entry**: each vehicle has a per-vehicle fillups page where you can add a row by hand (same shape as a CSV row). Useful for filling gaps that GasBuddy doesn't have. Each ledger row carries a small provenance glyph — `↻` for fillups synced from GasBuddy, `✎` for ones added manually or via CSV import.
 - **History**: every estimate is saved with its math (litres × $/L, fuel economy, calc method) and can be deleted from the dashboard.
 
 ## How the math works
@@ -122,15 +124,16 @@ GasBuddy is fully behind Cloudflare's challenge gate, so plain HTTP clients can'
 Setup, on the **Sync** page:
 
 1. **GasBuddy account** — enter your username/email + password. Stored encrypted at rest (AES-256-GCM via ActiveRecord::Encryption).
-2. **Sync now** — runs a one-off pass: spawns Chromium, logs in, scrapes the vehicle list, then for each vehicle you've linked locally (see step 3) reconciles fuel-log entries. Captured cookies are reused for ~30 days (cf_clearance lifespan); after that the next sync launches a fresh browser.
-3. **Vehicle linking** — after the first sync, the vehicle table populates with the GasBuddy garage. Pick which local vehicle each remote vehicle maps to. Unlinked remotes are skipped.
+2. **Refresh garage** — fetches your GasBuddy vehicle list and persists it locally. The Vehicle linking table then populates so you can map each remote vehicle to a local one (or **ignore** ones you don't care about — sync skips them permanently). Re-run any time GasBuddy gains/loses a vehicle.
+3. **Sync now** — for each linked, non-ignored remote vehicle, fetches the current year's fuel logs and reconciles them. Cookies from the first run are reused for ~30 days (cf_clearance lifespan); after that the next sync launches a fresh browser. The main sync short-circuits with a friendly message if no vehicles are linked yet.
+4. **Backfill** — same as Sync now but walks year-by-year back to 2010 (stopping after two consecutive empty years). Run this once after the first link; regular syncs handle current-year updates from then on.
 
 Per-entry behaviour during reconciliation:
 - If a fillup already carries the GasBuddy entry's UUID, skip it.
 - Else, look for a manually-imported fillup with no UUID that matches the remote entry by date (±36 h) and quantity (±0.5 L). If found, link it (no duplicate row). This is how CSV-imported data and auto-synced data coexist.
 - Else, insert a fresh fillup with the GasBuddy UUID set.
 
-Auto-sync runs at `00:00 UTC` daily when enabled. Every run records a `SyncRun` row with counts and an ordered log; the **Sync activity** section on the page shows the last 10 runs and expands per-run logs for triage when something fails.
+Auto-sync runs at `00:00 UTC` daily when enabled. Every run records a `SyncRun` row with counts and an ordered log; the **Sync activity** section on the page shows the last 10 runs and expands per-run logs for triage when something fails. Running syncs surface their latest log line live so backfill progress (per-year hit counts) is visible without expanding the run details.
 
 ## Running tests
 
@@ -151,7 +154,3 @@ Process-parallel via `ActiveSupport::TestCase`'s `parallelize(workers: :number_o
   ```
   This runs `git config core.hooksPath .githooks` and is safe to re-run.
 - On merge to `main`, CI builds multi-arch images, pushes them to GHCR (`ghcr.io/mmenanno/gasmoney`), tags the git commit `v<version>`, and creates a GitHub Release whose body is the matching CHANGELOG section.
-
-## License
-
-[MIT](./LICENSE).

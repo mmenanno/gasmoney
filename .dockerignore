@@ -20,6 +20,7 @@
 /db/*.sqlite3-shm
 /db/*.sqlite3-wal
 /state
+/state-dev
 
 # Logs / tmp
 /log
@@ -45,8 +46,10 @@
 /CONTRIBUTING.md
 
 # Dev-only bin/ scripts (bin/start + bin/init are the only entrypoints
-# the container actually invokes; the rest run on the workstation).
+# the container actually invokes; bin/test-browser + bin/chromium-xvfb
+# are needed at runtime so they ship; the rest run on the workstation).
 /bin/build-icons
+/bin/docker-dev
 
 # icon.svg is the ImageMagick source for bin/build-icons — a dev-only
 # helper that runs on the workstation, not in the image. The pre-rendered
