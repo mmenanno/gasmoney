@@ -10,12 +10,14 @@
 // Bump CACHE_VERSION whenever the static asset list changes; the old
 // cache is purged on the next activate event.
 
-const CACHE_VERSION = "gasmoney-shell-v2";
+const CACHE_VERSION = "gasmoney-shell-v3";
 const PRECACHE_URLS = [
   "/style.css",
   "/select.js",
   "/nav.js",
   "/confirm.js",
+  "/pwa-refresh.js",
+  "/sync.js",
   "/favicon.svg",
   "/favicon-32.png",
   "/icons/icon-192.png",

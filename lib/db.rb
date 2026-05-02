@@ -4,10 +4,14 @@ require "active_record"
 require "fileutils"
 require "logger"
 
+require_relative "encryption"
 require_relative "models/vehicle"
 require_relative "models/fillup"
 require_relative "models/trip_search"
 require_relative "models/saved_trip"
+require_relative "models/gasbuddy_setting"
+require_relative "models/sync_run"
+require_relative "models/sync_log_entry"
 
 module GasMoney
   module DB
@@ -29,6 +33,8 @@ module GasMoney
       ActiveRecord::Base.logger = Logger.new(IO::NULL)
       ActiveRecord::Migration.verbose = false
 
+      Encryption.configure!
+
       ensure_schema!
       migrate!
 
@@ -40,6 +46,7 @@ module GasMoney
         create_table(:vehicles, if_not_exists: true) do |t|
           t.string(:display_name, null: false)
           t.boolean(:pinned, null: false, default: false)
+          t.string(:gasbuddy_uuid)
         end
 
         create_table(:fillups, if_not_exists: true) do |t|
@@ -49,8 +56,8 @@ module GasMoney
           t.float(:quantity_liters,  null: false)
           t.float(:unit_price_cents, null: false)
           t.integer(:odometer)
-          # `l_per_100km IS NULL` doubles as the "partial fill" signal.
           t.float(:l_per_100km)
+          t.string(:gasbuddy_entry_uuid)
           t.index(
             [:vehicle_id, :filled_at, :odometer, :quantity_liters],
             unique: true,
@@ -85,19 +92,67 @@ module GasMoney
             default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
           )
         end
+
+        # GasBuddy auto-sync. Single-row table — the integration is
+        # per-installation, not per-user.
+        create_table(:gasbuddy_settings, if_not_exists: true) do |t|
+          t.string(:username)         # encrypted
+          t.string(:password)         # encrypted
+          t.string(:flaresolverr_url) # plain (UI-configured runtime URL)
+          t.text(:cookies_json)       # encrypted (Faraday cookie jar dump)
+          t.string(:user_agent)
+          t.string(:csrf_token)
+          t.string(:cookies_fetched_at)
+          t.boolean(:auto_sync_enabled, null: false, default: true)
+          t.string(:last_sync_at)
+          t.text(:last_sync_status)   # JSON
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+          t.string(:updated_at)
+        end
+
+        # Per-sync audit log. status: running|ok|failed|partial.
+        create_table(:sync_runs, if_not_exists: true) do |t|
+          t.string(:started_at, null: false)
+          t.string(:finished_at)
+          t.string(:trigger, null: false) # "scheduled" | "manual"
+          t.string(:status, null: false)
+          t.integer(:vehicles_synced,   null: false, default: 0)
+          t.integer(:fillups_inserted,  null: false, default: 0)
+          t.integer(:fillups_linked,    null: false, default: 0)
+          t.integer(:fillups_skipped,   null: false, default: 0)
+          t.text(:error_message)
+          t.index(:started_at, name: "idx_sync_runs_started_at")
+        end
+
+        # Ordered messages emitted by a single sync run.
+        create_table(:sync_log_entries, if_not_exists: true) do |t|
+          t.references(:sync_run, null: false, foreign_key: { on_delete: :cascade })
+          t.string(:level, null: false) # info|warn|error
+          t.text(:message, null: false)
+          t.text(:detail) # optional JSON
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+        end
       end
     end
 
     # Idempotent in-place migrations for upgrades from earlier schema
     # versions. Each step guards on its own column / index existence so
-    # re-running on every boot is a no-op once converged.
+    # re-running on every boot is a no-op once converged. Runs AFTER
+    # ensure_schema!, so any partial-index creation lives here — at this
+    # point the columns it depends on are guaranteed to exist.
     def self.migrate!
       conn = ActiveRecord::Base.connection
 
       unless conn.column_exists?(:vehicles, :pinned)
         conn.add_column(:vehicles, :pinned, :boolean, null: false, default: false)
-        # Existing rows pre-date the dashboard-pinning concept; preserve their
-        # at-a-glance presence by pinning them. New vehicles default to false.
         conn.execute("UPDATE vehicles SET pinned = 1")
       end
 
@@ -105,18 +160,32 @@ module GasMoney
         conn.remove_column(:vehicles, col) if conn.column_exists?(:vehicles, col)
       end
 
-      # Drop fillup columns the app never reads after writing. Surfaced
-      # by an audit pass: `partial_fill` is redundant with `l_per_100km
-      # IS NULL` (which is what every consumer was already checking),
-      # and `fuel_type`/`location`/`city`/`notes` were imported from the
-      # CSV but never displayed back. Existing data in those columns is
-      # discarded — nothing in the app reads it.
+      conn.add_column(:vehicles, :gasbuddy_uuid, :string) unless conn.column_exists?(:vehicles, :gasbuddy_uuid)
+      conn.add_column(:fillups,  :gasbuddy_entry_uuid, :string) unless conn.column_exists?(:fillups, :gasbuddy_entry_uuid)
+
+      add_unique_partial_index(:vehicles, :gasbuddy_uuid, "idx_vehicles_gasbuddy_uuid")
+      add_unique_partial_index(:fillups,  :gasbuddy_entry_uuid, "idx_fillups_gasbuddy_entry_uuid")
+
       [:partial_fill, :fuel_type, :location, :city, :notes].each do |col|
         conn.remove_column(:fillups, col) if conn.column_exists?(:fillups, col)
       end
 
       Vehicle.reset_column_information
       Fillup.reset_column_information
+      GasbuddySetting.reset_column_information
+      SyncRun.reset_column_information
+      SyncLogEntry.reset_column_information
+    end
+
+    # SQLite supports `CREATE UNIQUE INDEX ... WHERE` (partial index);
+    # ActiveRecord's `add_index ... where:` maps to it cleanly. Skip when
+    # the index already exists so re-runs are idempotent.
+    def self.add_unique_partial_index(table, column, name)
+      return if ActiveRecord::Base.connection.index_name_exists?(table, name)
+
+      ActiveRecord::Base.connection.add_index(
+        table, column, unique: true, where: "#{column} IS NOT NULL", name: name
+      )
     end
   end
 end

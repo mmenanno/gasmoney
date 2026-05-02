@@ -12,6 +12,15 @@ gem "activerecord",  "~> 8.0"
 gem "csv",           "~> 3.3"
 gem "sqlite3",       "~> 2.6"
 
+# GasBuddy auto-sync: Faraday for the HTTP client + cookie persistence,
+# Nokogiri for parsing the server-rendered vehicle list page, rufus-
+# scheduler for the daily cron.
+gem "faraday",            "~> 2.13"
+gem "faraday-cookie_jar", "~> 0.0.7"
+gem "http-cookie",        "~> 1.0"
+gem "nokogiri",           "~> 1.18"
+gem "rufus-scheduler",    "~> 3.9"
+
 group :development, :test do
   gem "rake"
   gem "rubocop-mmenanno", require: false
@@ -22,4 +31,5 @@ group :test do
   gem "minitest", "~> 6.0"
   gem "minitest-reporters"
   gem "rack-test"
+  gem "webmock", "~> 3.25"
 end

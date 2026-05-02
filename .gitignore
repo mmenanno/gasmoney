@@ -15,6 +15,12 @@
 /state/*.sqlite3
 /state/*.sqlite3-*
 
+# At-rest encryption master keys. Auto-generated on first boot if env
+# vars aren't supplied; losing this file makes encrypted credentials
+# unrecoverable, so back it up alongside the SQLite DB.
+/db/encryption.key
+/state/encryption.key
+
 # Logs / tmp
 /log/
 /tmp/
@@ -27,9 +33,12 @@
 *.swo
 Thumbs.db
 
-# Env
+# Env. dotenvx encrypts the contents of .env in place; .env.keys holds
+# the decryption key. Both stay out of git — `.env.example` (committed)
+# documents the variable list.
 .env
 .env.local
+.env.keys
 .envrc
 
 # Personal fuel logs — never commit your own GasBuddy exports

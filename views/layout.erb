@@ -27,6 +27,7 @@
   <script src="/select.js" defer></script>
   <script src="/confirm.js" defer></script>
   <script src="/nav.js" defer></script>
+  <script src="/pwa-refresh.js" defer></script>
   <script>
     // Service worker registration. The worker only caches the static
     // app shell — see public/sw.js for scope details. Failures are
@@ -56,6 +57,7 @@
       <nav class="nav" id="primary-nav">
         <a href="/vehicles" class="nav-link">Vehicles</a>
         <a href="/saved_trips" class="nav-link">Saved trips</a>
+        <a href="/sync" class="nav-link">Sync</a>
         <a href="/import" class="nav-link">Import logs</a>
       </nav>
     </header>
@@ -68,6 +70,9 @@
 
     <footer class="footer">
       <span><a href="https://github.com/mmenanno/gasmoney" class="link-soft">github.com/mmenanno/gasmoney</a> · v<%= GasMoney::VERSION %></span>
+      <button type="button" class="footer__refresh" data-pwa-refresh hidden>
+        Refresh app
+      </button>
     </footer>
   </main>
 </body>

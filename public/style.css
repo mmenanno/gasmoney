@@ -607,6 +607,22 @@ body.modal-open { overflow: hidden; }
 .footer .link-soft { color: var(--ink-soft); border-bottom: 1px dotted var(--rule); }
 .footer .link-soft:hover { color: var(--accent); border-color: var(--accent); }
 
+.footer__refresh {
+  margin-left: 12px;
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: color 100ms ease, border-color 100ms ease;
+}
+.footer__refresh:hover { color: var(--accent); border-color: var(--accent); }
+.footer__refresh:disabled { opacity: 0.6; cursor: wait; }
+
 .empty-state {
   background: var(--surface);
   padding: 24px 28px;
@@ -675,6 +691,215 @@ body.modal-open { overflow: hidden; }
   color: var(--accent);
   border-color: var(--accent);
   background: rgba(124, 196, 184, 0.10);
+}
+
+/* ---- Sync page ---- */
+
+.sync-status {
+  margin-bottom: 48px;
+}
+.sync-status__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sync-status__head .section-heading { margin: 0; }
+.sync-status__head .btn { margin-top: 0; padding: 9px 16px; }
+
+.sync-status__readouts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  background: var(--surface);
+  padding: 18px 22px;
+  margin-bottom: 14px;
+}
+@media (max-width: 540px) {
+  .sync-status__readouts { grid-template-columns: 1fr; gap: 14px; }
+}
+
+.auto-toggle {
+  display: inline-block;
+  margin: 0;
+}
+
+.caption-mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+
+.ledger--linking td { padding: 14px 16px 14px 0; }
+.inline-form--link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.inline-form--link select {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 6px 10px;
+  outline: none;
+  min-width: 220px;
+  transition: border-color 100ms ease;
+}
+.inline-form--link select:focus { border-color: var(--accent); }
+
+/* Sync activity — borrows the dashboard "tile" DNA but renders each
+   run as a horizontal strip with a colored left rail. The rail color
+   communicates run status at a glance; counters use the same tabular-
+   nums readout pattern as the dashboard. */
+.run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.run {
+  position: relative;
+  display: flex;
+  background: var(--surface);
+  overflow: hidden;
+}
+.run__rail {
+  flex: 0 0 4px;
+  background: var(--rule);
+  transition: background 200ms ease;
+}
+.run--ok      .run__rail { background: var(--accent); }
+.run--partial .run__rail { background: #d9b86a; }
+.run--failed  .run__rail { background: var(--alert); }
+.run--running .run__rail {
+  background: var(--accent);
+  animation: run-pulse 1.6s ease-in-out infinite;
+}
+@keyframes run-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.run__body {
+  flex: 1 1 auto;
+  padding: 14px 18px 16px;
+  min-width: 0;
+}
+.run__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+.status-pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.status-pill--ok      { color: var(--accent); border-color: var(--accent); }
+.status-pill--partial { color: #d9b86a; border-color: #d9b86a; }
+.status-pill--failed  { color: var(--alert); border-color: var(--alert); }
+.status-pill--running { color: var(--accent); border-color: var(--accent); }
+
+.run__time     { color: var(--ink); }
+.run__trigger  { text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+.run__duration { font-family: var(--mono); font-size: 12px; }
+
+.run__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.run__counts strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+
+.run__error {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  background: rgba(217, 139, 106, 0.08);
+  color: var(--alert);
+  border-left: 2px solid var(--alert);
+  font-family: var(--mono);
+}
+
+.run__log {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.run__log summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+  list-style: none;
+  user-select: none;
+}
+.run__log summary::-webkit-details-marker { display: none; }
+.run__log summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  transition: transform 150ms ease;
+}
+.run__log[open] summary::before { transform: rotate(90deg); }
+
+.log-entries {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px 0 4px;
+  border-top: 1px dotted var(--rule);
+}
+.log-entry {
+  padding: 4px 0;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.log-entry__time { color: var(--ink-soft); font-feature-settings: "tnum"; }
+.log-entry__msg  { color: var(--ink); word-break: break-word; }
+.log-entry--warn  .log-entry__msg { color: #d9b86a; }
+.log-entry--error .log-entry__msg { color: var(--alert); }
+
+.log-entry__detail {
+  grid-column: 2 / -1;
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink-soft);
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 /* Vehicle cards — replaces a 5-column ledger that didn't fit on

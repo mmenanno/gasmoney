@@ -1,0 +1,186 @@
+<% effective_url = GasMoney::GasbuddySetting.effective_flaresolverr_url
+   url_source = if @setting.flaresolverr_url.to_s.strip.empty?
+                  effective_url ? "from environment" : nil
+                else
+                  "saved here"
+                end
+   linked_count = GasMoney::Vehicle.where.not(gasbuddy_uuid: nil).count
+   synced_fillups = GasMoney::Fillup.where.not(gasbuddy_entry_uuid: nil).count %>
+
+<section class="sync-status">
+  <div class="sync-status__head">
+    <h2 class="section-heading">GasBuddy auto-sync</h2>
+    <form action="/sync/run" method="post" class="inline-form">
+      <button type="submit" class="btn btn--primary"
+              <%= "disabled" unless @setting.credentials_present? && effective_url %>>
+        Sync now
+      </button>
+    </form>
+  </div>
+
+  <div class="sync-status__readouts">
+    <div class="readout">
+      <div class="readout__value"><%= @setting.last_sync_at ? fmt_relative(@setting.last_sync_at) : "—" %></div>
+      <div class="readout__caption">last run</div>
+    </div>
+    <div class="readout">
+      <div class="readout__value"><%= linked_count %></div>
+      <div class="readout__caption">linked vehicles</div>
+    </div>
+    <div class="readout">
+      <div class="readout__value"><%= synced_fillups %></div>
+      <div class="readout__caption">synced fillups</div>
+    </div>
+  </div>
+
+  <form action="/sync/auto" method="post" class="auto-toggle">
+    <input type="hidden" name="auto_sync_enabled" value="<%= @setting.auto_sync_enabled ? '0' : '1' %>">
+    <button type="submit" class="pin-toggle <%= 'pin-toggle--on' if @setting.auto_sync_enabled %>">
+      <%= @setting.auto_sync_enabled ? "★ auto-sync on (00:00 UTC daily)" : "☆ auto-sync off" %>
+    </button>
+  </form>
+</section>
+
+<section class="form-section">
+  <h3 class="section-heading">GasBuddy account</h3>
+  <% if @setting.credentials_present? %>
+    <p class="lede">
+      Connected as <strong class="link-accent"><%= h(@setting.username) %></strong>.
+      Stored encrypted at rest.
+    </p>
+    <form action="/sync/credentials/clear" method="post" class="inline-form"
+          data-confirm="Clear stored GasBuddy credentials? You'll need to re-enter them to sync again."
+          data-confirm-action="Clear credentials"
+          data-confirm-tone="danger">
+      <button type="submit" class="btn btn--ghost">Clear credentials</button>
+    </form>
+  <% else %>
+    <p class="lede">Used only to log in to GasBuddy via the FlareSolverr proxy. Stored encrypted at rest.</p>
+    <form action="/sync/credentials" method="post" class="form">
+      <label class="field">
+        <span class="field__label">Username or email</span>
+        <input type="text" name="username" autocomplete="off" required>
+      </label>
+      <label class="field">
+        <span class="field__label">Password</span>
+        <input type="password" name="password" autocomplete="new-password" required>
+      </label>
+      <button type="submit" class="btn btn--primary">Save credentials</button>
+    </form>
+  <% end %>
+</section>
+
+<section class="form-section">
+  <h3 class="section-heading">FlareSolverr</h3>
+  <p class="lede">
+    The proxy that solves Cloudflare's challenge so we can log in to GasBuddy.
+    <% if url_source %>
+      Currently <strong class="link-accent"><%= url_source %></strong>.
+    <% else %>
+      Set this before the first sync.
+    <% end %>
+  </p>
+  <form action="/sync/flaresolverr" method="post" class="form">
+    <label class="field">
+      <span class="field__label">URL</span>
+      <input type="text" name="flaresolverr_url" placeholder="http://10.0.0.5:8191"
+             value="<%= h(@setting.flaresolverr_url) %>">
+    </label>
+    <button type="submit" class="btn btn--ghost">Save URL</button>
+  </form>
+</section>
+
+<section class="form-section">
+  <h3 class="section-heading">Vehicle linking</h3>
+  <% if @remote_vehicles.empty? %>
+    <p class="lede">
+      No remote vehicle list yet — run a sync to fetch your GasBuddy garage.
+      Once it's there, link each remote vehicle to a local one to enable fillup sync.
+    </p>
+  <% else %>
+    <p class="lede">Map each GasBuddy vehicle to a local one. Unlinked remote vehicles are skipped.</p>
+    <table class="ledger ledger--linking">
+      <thead>
+        <tr>
+          <th>GasBuddy vehicle</th>
+          <th>Linked to</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @remote_vehicles.each do |remote| %>
+          <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote["uuid"] } %>
+          <tr>
+            <td><%= h(remote["name"]) %><br><span class="caption-mono"><%= h(remote["uuid"]) %></span></td>
+            <td>
+              <form action="/sync/vehicles/link" method="post" class="inline-form inline-form--link">
+                <input type="hidden" name="remote_uuid" value="<%= h(remote["uuid"]) %>">
+                <select name="vehicle_id">
+                  <option value="">— not linked —</option>
+                  <% @local_vehicles.each do |v| %>
+                    <option value="<%= v.id %>" <%= "selected" if linked && linked.id == v.id %>>
+                      <%= h(v.display_name) %>
+                    </option>
+                  <% end %>
+                </select>
+                <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
+              </form>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</section>
+
+<section class="form-section sync-runs" data-sync-runs>
+  <h3 class="section-heading">Sync activity</h3>
+  <% if @recent_runs.empty? %>
+    <p class="empty">No sync runs yet.</p>
+  <% else %>
+    <ol class="run-list">
+      <% @recent_runs.each do |run| %>
+        <li class="run run--<%= run.status %>" data-run-id="<%= run.id %>"
+            <%= 'data-running="1"' if run.running? %>>
+          <div class="run__rail" aria-hidden="true"></div>
+          <div class="run__body">
+            <div class="run__header">
+              <span class="run__status status-pill status-pill--<%= run.status %>">
+                <%= { "ok"=>"✓ OK", "failed"=>"✗ failed", "partial"=>"⚠ partial", "running"=>"↻ running" }[run.status] %>
+              </span>
+              <span class="run__time" data-since="<%= run.started_at %>"><%= fmt_relative(run.started_at) %></span>
+              <span class="run__trigger"><%= run.trigger %></span>
+              <% if run.duration_seconds %>
+                <span class="run__duration"><%= run.duration_seconds %>s</span>
+              <% end %>
+            </div>
+            <div class="run__counts" data-run-counts>
+              <span class="count"><strong data-count="vehicles_synced"><%= run.vehicles_synced %></strong> vehicles</span>
+              <span class="count"><strong data-count="fillups_inserted"><%= run.fillups_inserted %></strong> inserted</span>
+              <span class="count"><strong data-count="fillups_linked"><%= run.fillups_linked %></strong> linked</span>
+              <span class="count"><strong data-count="fillups_skipped"><%= run.fillups_skipped %></strong> skipped</span>
+            </div>
+            <% if run.error_message.to_s != "" %>
+              <p class="run__error" data-run-error><%= h(run.error_message) %></p>
+            <% end %>
+            <details class="run__log">
+              <summary><span data-log-count><%= run.sync_log_entries.size %></span> log entries</summary>
+              <ol class="log-entries" data-log-entries>
+                <% run.sync_log_entries.each do |entry| %>
+                  <li class="log-entry log-entry--<%= entry.level %>">
+                    <span class="log-entry__time"><%= entry.created_at[11, 8] rescue entry.created_at %></span>
+                    <span class="log-entry__msg"><%= h(entry.message) %></span>
+                    <% if entry.parsed_detail %>
+                      <pre class="log-entry__detail"><%= h(JSON.pretty_generate(entry.parsed_detail)) %></pre>
+                    <% end %>
+                  </li>
+                <% end %>
+              </ol>
+            </details>
+          </div>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+</section>
+
+<script src="/sync.js" defer></script>

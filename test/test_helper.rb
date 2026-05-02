@@ -11,6 +11,11 @@ require "minitest/reporters"
 require "active_support"
 require "active_support/test_case"
 require "active_support/testing/time_helpers"
+require "webmock/minitest"
+
+# All outbound HTTP must be stubbed — sync code must never reach the
+# real GasBuddy or FlareSolverr from a test run.
+WebMock.disable_net_connect!(allow_localhost: false)
 
 Minitest::Reporters.use!(Minitest::Reporters::ProgressReporter.new)
 

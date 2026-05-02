@@ -7,6 +7,8 @@ require "time"
 require_relative "lib/db"
 require_relative "lib/importer"
 require_relative "lib/calculator"
+require_relative "lib/gasbuddy/sync"
+require_relative "lib/scheduler"
 
 module GasMoney
   DEV_SESSION_SECRET = "gasmoney-local-dev-secret-do-not-use-in-prod-#{"x" * 64}".freeze
@@ -21,6 +23,9 @@ module GasMoney
 
     configure do
       DB.connect
+      # Scheduler ticks the daily auto-sync. Skipped when running tests
+      # (RACK_ENV=test) so suites don't accidentally hit the network.
+      Scheduler.start! unless ENV["RACK_ENV"] == "test"
     end
 
     after { ActiveRecord::Base.connection_handler.clear_active_connections! }
@@ -302,6 +307,156 @@ module GasMoney
     post "/saved_trips/:id/delete" do
       SavedTrip.where(id: params["id"].to_i).delete_all
       redirect "/saved_trips"
+    end
+
+    # ---- GasBuddy auto-sync ----
+
+    helpers do
+      def gasbuddy_setting = GasbuddySetting.current
+
+      def remote_vehicles_from_recent_run
+        run = SyncRun.recent.first
+        return [] unless run
+
+        log = run.sync_log_entries.where(message: "Discovered remote vehicles").order(:id).last
+        return [] unless log
+
+        parsed = log.parsed_detail
+        parsed && parsed["vehicles"] ? parsed["vehicles"] : []
+      end
+
+      def fmt_relative(time_str)
+        return "—" if time_str.to_s.empty?
+
+        delta = Time.now.utc - Time.parse(time_str)
+        return "just now" if delta < 30
+        return "#{(delta / 60).floor}m ago" if delta < 3_600
+        return "#{(delta / 3_600).floor}h ago" if delta < 86_400
+
+        Date.parse(time_str).strftime("%Y-%m-%d")
+      rescue ArgumentError
+        time_str
+      end
+    end
+
+    get "/sync" do
+      @setting = gasbuddy_setting
+      @recent_runs = SyncRun.recent.includes(:sync_log_entries).limit(10)
+      @remote_vehicles = remote_vehicles_from_recent_run
+      @local_vehicles = Vehicle.ordered
+      erb :sync
+    end
+
+    get "/sync/runs/:id.json" do
+      content_type :json
+      run = SyncRun.find_by(id: params["id"].to_i)
+      halt(404, '{"error":"not found"}') unless run
+
+      JSON.generate(
+        id:                run.id,
+        status:            run.status,
+        trigger:           run.trigger,
+        started_at:        run.started_at,
+        finished_at:       run.finished_at,
+        duration_seconds:  run.duration_seconds,
+        vehicles_synced:   run.vehicles_synced,
+        fillups_inserted:  run.fillups_inserted,
+        fillups_linked:    run.fillups_linked,
+        fillups_skipped:   run.fillups_skipped,
+        error_message:     run.error_message,
+        log: run.sync_log_entries.map do |e|
+          { level: e.level, message: e.message, detail: e.parsed_detail, at: e.created_at }
+        end,
+      )
+    end
+
+    post "/sync/credentials" do
+      setting = gasbuddy_setting
+      username = params["username"].to_s.strip
+      password = params["password"].to_s
+
+      if username.empty? || password.empty?
+        set_flash(:error, "Username and password are required.")
+        redirect "/sync"
+      end
+
+      setting.update!(username: username, password: password)
+      set_flash(:success, "GasBuddy credentials saved.")
+      redirect "/sync"
+    end
+
+    post "/sync/credentials/clear" do
+      setting = gasbuddy_setting
+      setting.update!(
+        username: nil,
+        password: nil,
+        cookies_json: nil,
+        user_agent: nil,
+        csrf_token: nil,
+        cookies_fetched_at: nil,
+      )
+      set_flash(:success, "Credentials cleared.")
+      redirect "/sync"
+    end
+
+    post "/sync/flaresolverr" do
+      setting = gasbuddy_setting
+      url = params["flaresolverr_url"].to_s.strip
+      if url.empty?
+        setting.update!(flaresolverr_url: nil)
+        set_flash(:success, "FlareSolverr URL cleared.")
+      elsif url.match?(%r{\Ahttps?://[^\s]+\z})
+        setting.update!(flaresolverr_url: url)
+        set_flash(:success, "FlareSolverr URL saved.")
+      else
+        set_flash(:error, "FlareSolverr URL must start with http:// or https://.")
+      end
+      redirect "/sync"
+    end
+
+    post "/sync/auto" do
+      setting = gasbuddy_setting
+      setting.update!(auto_sync_enabled: params["auto_sync_enabled"] == "1")
+      redirect "/sync"
+    end
+
+    post "/sync/vehicles/link" do
+      remote_uuid = params["remote_uuid"].to_s
+      target_id   = params["vehicle_id"].to_s
+
+      if remote_uuid.empty?
+        set_flash(:error, "Missing remote vehicle UUID.")
+        redirect "/sync"
+      end
+
+      # Reset any vehicle that previously held this remote uuid (one-to-one).
+      Vehicle.where(gasbuddy_uuid: remote_uuid).update_all(gasbuddy_uuid: nil)
+
+      if target_id == ""
+        set_flash(:success, "Unlinked.")
+      else
+        Vehicle.where(id: target_id.to_i).update_all(gasbuddy_uuid: remote_uuid)
+        set_flash(:success, "Vehicle linked.")
+      end
+      redirect "/sync"
+    end
+
+    post "/sync/run" do
+      setting = gasbuddy_setting
+
+      unless setting.credentials_present?
+        set_flash(:error, "Save GasBuddy credentials first.")
+        redirect "/sync"
+      end
+
+      unless GasbuddySetting.effective_flaresolverr_url
+        set_flash(:error, "Configure FlareSolverr URL first.")
+        redirect "/sync"
+      end
+
+      Scheduler.run_now_async(trigger: "manual")
+      set_flash(:success, "Sync started.")
+      redirect "/sync"
     end
   end
 end

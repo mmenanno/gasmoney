@@ -5,7 +5,7 @@ A self-hosted, single-screen calculator that estimates the gas cost of any trip 
 [![CI](https://img.shields.io/github/actions/workflow/status/mmenanno/gasmoney/ci.yml?branch=main&label=CI)](https://github.com/mmenanno/gasmoney/actions/workflows/ci.yml)
 [![version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmmenanno%2Fgasmoney%2Fmain%2FVERSION&search=.%2B&label=version&prefix=v)](./VERSION)
 [![ruby](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmmenanno%2Fgasmoney%2Fmain%2F.ruby-version&search=.%2B&label=ruby&color=CC342D)](./.ruby-version)
-[![license](https://img.shields.io/github/license/mmenanno/gasmoney)](./LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 ## What it does
 
@@ -13,6 +13,7 @@ A self-hosted, single-screen calculator that estimates the gas cost of any trip 
 - **Saved trips**: name a route once (e.g. "Commute", "Cottage"), pick it from a dropdown to pre-fill the form for any vehicle / date.
 - **Vehicle management**: add the vehicles you actually drive; pin a subset to the dashboard for the at-a-glance "$/km latest" + "$/km 5-fillup average" tiles.
 - **CSV import** of GasBuddy exports with row-level dedup on `(vehicle, timestamp, odometer, quantity)` so re-importing the same file is a no-op.
+- **Auto-sync from GasBuddy** (optional): once a day at midnight UTC plus a manual button. Runs through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) instance to clear Cloudflare's challenge, then talks to GasBuddy's GraphQL endpoint with the captured session cookies. New entries import automatically; existing manually-imported fillups that match an incoming entry are linked rather than duplicated.
 - **History**: every estimate is saved with its math (litres × $/L, fuel economy, calc method) and can be deleted from the dashboard.
 
 ## How the math works
@@ -69,7 +70,23 @@ bundle install
 bundle exec rackup -p 9292 -o 127.0.0.1
 ```
 
-The first boot creates `db/gasmoney.sqlite3` and seeds two example vehicles. Use the **Vehicles** page to add your own and pin the ones you want on the dashboard, then **Import logs** to load a GasBuddy CSV.
+The first boot creates `db/gasmoney.sqlite3` and an `db/encryption.key` file (mode 0600) used to encrypt at-rest credentials. Use the **Vehicles** page to add your own and pin the ones you want on the dashboard, then **Import logs** to load a GasBuddy CSV.
+
+#### Local env via dotenvx
+
+For local testing of the auto-sync code (which talks to a real FlareSolverr instance), use [dotenvx](https://dotenvx.com/) so the `.env` file lives encrypted on disk:
+
+```bash
+brew install dotenvx
+cp .env.example .env
+# fill in real values, then encrypt in place:
+dotenvx encrypt
+# .env now stores ciphertext; .env.keys holds the local decryption key.
+# Run anything via dotenvx to inject the decrypted values:
+dotenvx run -- bundle exec rackup -p 9292 -o 127.0.0.1
+```
+
+Both `.env` and `.env.keys` are gitignored. Production deployments set the env vars directly on the container — dotenvx is dev-only.
 
 ## Importing fuel logs
 
@@ -78,6 +95,24 @@ The first boot creates `db/gasmoney.sqlite3` and seeds two example vehicles. Use
 3. **Import logs** → pick the vehicle the CSV is for + select the file → Import.
 
 The importer dedups on `(vehicle_id, filled_at, odometer, quantity_liters)`, so re-importing the same file inserts zero rows. Re-import a CSV after appending new fillups and only the new rows insert.
+
+## Auto-sync from GasBuddy
+
+GasBuddy is fully behind Cloudflare's challenge gate, so plain HTTP clients can't authenticate. Gasmoney shells the login through [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) — point the integration at any reachable instance and it'll handle the challenge once, capturing session cookies that subsequent requests reuse.
+
+Setup, on the **Sync** page:
+
+1. **GasBuddy account** — enter your username/email + password. Stored encrypted at rest (AES-256-GCM via ActiveRecord::Encryption).
+2. **FlareSolverr** — paste your instance URL (e.g. `http://10.0.0.5:8191`). The `FLARESOLVERR_URL` env var is honoured as a fallback if you'd rather configure it that way.
+3. **Sync now** — runs a one-off pass: logs in, scrapes the vehicle list, then for each vehicle you've linked locally (see step 4) reconciles fuel-log entries.
+4. **Vehicle linking** — after the first sync, the vehicle table populates with the GasBuddy garage. Pick which local vehicle each remote vehicle maps to. Unlinked remotes are skipped.
+
+Per-entry behaviour during reconciliation:
+- If a fillup already carries the GasBuddy entry's UUID, skip it.
+- Else, look for a manually-imported fillup with no UUID that matches the remote entry by date (±36 h) and quantity (±0.5 L). If found, link it (no duplicate row). This is how CSV-imported data and auto-synced data coexist.
+- Else, insert a fresh fillup with the GasBuddy UUID set.
+
+Auto-sync runs at `00:00 UTC` daily when enabled. Every run records a `SyncRun` row with counts and an ordered log; the **Sync activity** section on the page shows the last 10 runs and expands per-run logs for triage when something fails.
 
 ## Running tests
 

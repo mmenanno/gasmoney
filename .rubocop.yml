@@ -35,3 +35,18 @@ Style/ClassMethodsDefinitions:
 # same operation under test.
 Minitest/MultipleAssertions:
   Max: 8
+
+# lib/db.rb is the single source of truth for ensure_schema! + migrate! +
+# the partial-index helper. Splitting it would scatter migration intent
+# across files, making it harder to keep ordering correct.
+Metrics/ModuleLength:
+  Exclude:
+    - "lib/db.rb"
+
+# lib/scheduler.rb intentionally spawns a Thread for the manual sync
+# trigger so the request returns immediately while the sync continues
+# in the background. Single-mode Puma means there's exactly one process,
+# so the cop's thread-safety concerns don't apply.
+ThreadSafety/NewThread:
+  Exclude:
+    - "lib/scheduler.rb"

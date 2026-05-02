@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-02
+
+### Added
+
+- **Auto-sync from GasBuddy.** New `/sync` page with credentials form, FlareSolverr URL config, vehicle linking table, "sync now" button, auto-sync on/off toggle, and an activity feed of the last 10 sync runs (with per-run expandable logs and a colored left rail communicating status). Daily cron at 00:00 UTC via `rufus-scheduler`; manual runs spawn a background thread that posts updates the page polls every 2 s.
+- **GasBuddy auto-sync engine** (`lib/gasbuddy/`):
+  - `FlareSolverr` client wraps the `/v1` API to clear Cloudflare's challenge.
+  - `Client` (Faraday + cookie jar) replays plain HTTP with stored cookies + UA, transparently re-running the FlareSolverr login flow on a 403/cf-mitigated response.
+  - `Scraper` parses `/account/vehicles` HTML with Nokogiri and the `/graphql` JSON responses for fuel-log lists / details.
+  - `Sync` orchestrator: refreshes cookies if needed, fetches the vehicle list, then for each linked vehicle reconciles fuel-log entries with these rules:
+    1. If a local fillup already carries the GasBuddy entry's UUID, skip.
+    2. Else look for a manually-imported fillup (no UUID) within ±36 h and ±0.5 L of the remote entry; if found, link it rather than insert a duplicate. CSV-imported data and auto-synced data coexist this way.
+    3. Else insert a fresh fillup carrying the UUID.
+  - `SyncRun` + `SyncLogEntry` audit tables capture each pass's counts and ordered log messages so the UI can replay what happened, including any per-vehicle errors.
+- **At-rest credential encryption** via `ActiveRecord::Encryption` (AES-256-GCM). Encryption keys come from env vars (`GASMONEY_ENCRYPTION_KEY` etc.) or, if absent, are auto-generated and persisted to `db/encryption.key` (mode 0600) on first boot. `gasbuddy_settings.username`, `password`, and `cookies_json` are encrypted columns.
+- **dotenvx workflow** for local dev: `.env.example` lists the required vars; `dotenvx encrypt` produces a ciphertext `.env` + a separate `.env.keys` file, both gitignored. `dotenvx run -- bundle exec rackup` injects the decrypted values into the process.
+- **PWA refresh button** in the footer that unregisters the service worker, deletes its caches, and hard-reloads — lets installed-PWA users pick up new shells without going to browser settings. Hidden in non-PWA browsers.
+
+### Changed
+
+- License badge in the README switched from `shields.io/github/license` (which has been returning "repo not found" intermittently) to a static `badge/license-MIT-blue` image — both link to the local `LICENSE` file.
+- Service worker bumped to `gasmoney-shell-v3`; `nav.js`, `pwa-refresh.js`, and `sync.js` added to the precache list so the new offline shell is consistent with the new pages.
+- `vehicles` and `fillups` tables gain `gasbuddy_uuid` / `gasbuddy_entry_uuid` columns with partial unique indexes (`WHERE … IS NOT NULL`) so manual-only data continues to dedup on the existing `(vehicle_id, filled_at, odometer, quantity_liters)` key.
+
+### Security
+
+- GasBuddy credentials and session cookies never appear in logs (no Faraday request-logger middleware enabled), and are only ever sent over HTTPS to GasBuddy / iam.gasbuddy.com or to the user-configured FlareSolverr endpoint.
+- The FlareSolverr URL is treated as sensitive — it's a runtime-only setting (env var fallback + UI override), and never committed to source control.
+
 ## [0.5.2] - 2026-05-02
 
 ### Changed
