@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-05-02
+
+### Changed
+
+- `.dockerignore` now excludes `/state-dev` (the local Docker dev workflow's host-mounted state, sibling to `/state`) and `/bin/docker-dev` (host-only, never invoked at runtime). Keeps the published image from accidentally baking in a developer's local SQLite database or a script that's only useful outside the container.
+
+### Documentation
+
+- README auto-sync section rewritten to match the current Sync page (Refresh garage → link/ignore → Sync now → Backfill once). Drops the obsolete FlareSolverr description, adds the Backfill feature, the Ignore option, the manual fillup entry page, and the provenance glyph on the fillups ledger. Redundant `## License` section removed (the MIT badge carries it).
+
 ## [0.10.2] - 2026-05-02
 
 ### Changed
