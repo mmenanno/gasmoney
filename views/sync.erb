@@ -1,10 +1,4 @@
-<% effective_url = GasMoney::GasbuddySetting.effective_flaresolverr_url
-   url_source = if @setting.flaresolverr_url.to_s.strip.empty?
-                  effective_url ? "from environment" : nil
-                else
-                  "saved here"
-                end
-   linked_count = GasMoney::Vehicle.where.not(gasbuddy_uuid: nil).count
+<% linked_count = GasMoney::Vehicle.where.not(gasbuddy_uuid: nil).count
    synced_fillups = GasMoney::Fillup.where.not(gasbuddy_entry_uuid: nil).count %>
 
 <section class="sync-status">
@@ -12,7 +6,7 @@
     <h2 class="section-heading">GasBuddy auto-sync</h2>
     <form action="/sync/run" method="post" class="inline-form">
       <button type="submit" class="btn btn--primary"
-              <%= "disabled" unless @setting.credentials_present? && effective_url %>>
+              <%= "disabled" unless @setting.credentials_present? %>>
         Sync now
       </button>
     </form>
@@ -55,7 +49,7 @@
       <button type="submit" class="btn btn--ghost">Clear credentials</button>
     </form>
   <% else %>
-    <p class="lede">Used only to log in to GasBuddy via the FlareSolverr proxy. Stored encrypted at rest.</p>
+    <p class="lede">Used to log in to GasBuddy from the bundled headless Chromium. Stored encrypted at rest.</p>
     <form action="/sync/credentials" method="post" class="form">
       <label class="field">
         <span class="field__label">Username or email</span>
@@ -68,31 +62,6 @@
       <button type="submit" class="btn btn--primary">Save credentials</button>
     </form>
   <% end %>
-</section>
-
-<section class="form-section">
-  <h3 class="section-heading">FlareSolverr</h3>
-  <p class="lede">
-    The proxy that solves Cloudflare's challenge so we can log in to GasBuddy.
-    <% if url_source %>
-      Currently <strong class="link-accent"><%= url_source %></strong>.
-    <% else %>
-      Set this before the first sync.
-    <% end %>
-  </p>
-  <form action="/sync/flaresolverr" method="post" class="form" id="flaresolverr-form">
-    <label class="field">
-      <span class="field__label">URL</span>
-      <input type="text" name="flaresolverr_url" placeholder="http://10.0.0.5:8191"
-             value="<%= h(@setting.flaresolverr_url) %>">
-    </label>
-    <div class="form__actions">
-      <button type="submit" class="btn btn--ghost">Save URL</button>
-      <button type="submit" formaction="/sync/flaresolverr/test" formmethod="post" class="btn btn--ghost">
-        Test connection
-      </button>
-    </div>
-  </form>
 </section>
 
 <section class="form-section">

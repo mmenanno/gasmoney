@@ -13,10 +13,12 @@ gem "csv",           "~> 3.3"
 gem "sqlite3",       "~> 2.6"
 
 # GasBuddy auto-sync: Faraday for the HTTP client + cookie persistence,
-# Nokogiri for parsing the server-rendered vehicle list page, rufus-
-# scheduler for the daily cron.
+# Nokogiri for parsing the server-rendered vehicle list page, Ferrum to
+# drive a bundled headless Chromium for the login (CF challenge + the
+# React form's JSON XHR), rufus-scheduler for the daily cron.
 gem "faraday",            "~> 2.13"
 gem "faraday-cookie_jar", "~> 0.0.7"
+gem "ferrum",             "~> 0.16"
 gem "http-cookie",        "~> 1.0"
 gem "nokogiri",           "~> 1.18"
 gem "rufus-scheduler",    "~> 3.9"

@@ -399,47 +399,6 @@ module GasMoney
       redirect "/sync"
     end
 
-    post "/sync/flaresolverr" do
-      setting = gasbuddy_setting
-      url = params["flaresolverr_url"].to_s.strip
-      if url.empty?
-        setting.update!(flaresolverr_url: nil)
-        set_flash(:success, "FlareSolverr URL cleared.")
-      elsif url.match?(%r{\Ahttps?://[^\s]+\z})
-        setting.update!(flaresolverr_url: url)
-        set_flash(:success, "FlareSolverr URL saved.")
-      else
-        set_flash(:error, "FlareSolverr URL must start with http:// or https://.")
-      end
-      redirect "/sync"
-    end
-
-    post "/sync/flaresolverr/test" do
-      # Tests whatever URL is in the form right now — lets the user
-      # validate the value BEFORE committing it to the DB. Falls back
-      # to the saved URL when the form is empty (e.g. "test the one I
-      # already saved").
-      url = params["flaresolverr_url"].to_s.strip
-      url = gasbuddy_setting.flaresolverr_url.to_s.strip if url.empty?
-
-      if url.empty?
-        set_flash(:error, "Enter a FlareSolverr URL above before testing.")
-      else
-        begin
-          info = GasMoney::GasBuddy::FlareSolverr.new(url).ping
-          version = info[:version] ? "v#{info[:version]}" : "(unknown version)"
-          set_flash(:success, "Connected to FlareSolverr #{version} at #{url}.")
-        rescue GasMoney::GasBuddy::FlareSolverr::Misconfigured => e
-          set_flash(:error, "Bad URL: #{e.message}.")
-        rescue GasMoney::GasBuddy::FlareSolverr::Timeout => e
-          set_flash(:error, "FlareSolverr timed out: #{e.message}.")
-        rescue GasMoney::GasBuddy::FlareSolverr::UpstreamFailure => e
-          set_flash(:error, "FlareSolverr error: #{e.message}.")
-        end
-      end
-      redirect "/sync"
-    end
-
     post "/sync/auto" do
       setting = gasbuddy_setting
       setting.update!(auto_sync_enabled: params["auto_sync_enabled"] == "1")
@@ -472,11 +431,6 @@ module GasMoney
 
       unless setting.credentials_present?
         set_flash(:error, "Save GasBuddy credentials first.")
-        redirect "/sync"
-      end
-
-      unless GasbuddySetting.effective_flaresolverr_url
-        set_flash(:error, "Configure FlareSolverr URL first.")
         redirect "/sync"
       end
 

@@ -15,7 +15,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       gosu \
       libjemalloc2 \
       sqlite3 \
-      tini
+      tini \
+      # Chromium runs the GasBuddy login flow inside a real browser so
+      # Cloudflare's JS challenge solves naturally and the React form
+      # submits its JSON XHR with the right CSRF + Content-Type. Bundled
+      # rather than pulled at runtime so the image is fully self-contained.
+      chromium \
+      fonts-liberation \
+      libnss3
 
 ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/usr/local/bundle \
@@ -23,6 +30,7 @@ ENV BUNDLE_DEPLOYMENT=1 \
     RACK_ENV=production \
     RUBY_YJIT_ENABLE=1 \
     GASMONEY_DB_PATH=/app/state/gasmoney.sqlite3 \
+    CHROMIUM_PATH=/usr/bin/chromium \
     PORT=9292
 
 # ---- gems stage ----

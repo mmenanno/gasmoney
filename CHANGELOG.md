@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-02
+
+### Changed
+
+- **Auth flow now uses a bundled headless Chromium** (via Ferrum) instead of FlareSolverr. The `cf_clearance` cookie that FlareSolverr returned was bound to FlareSolverr's network identity (IP and/or TLS fingerprint), so the gasmoney container couldn't replay it for the JSON login POST — Cloudflare always re-challenged. The bundled-browser approach solves this for good: the login fires from the same container that subsequently makes the data calls, so cookies are inherently portable.
+
+  What this looks like in practice:
+  - On `refresh_cookies!`, gasmoney spawns a headless Chromium, navigates to `/login` (Cloudflare's challenge solves naturally), fills the React form (`identifier` + `password` field names verified from a real login trace), clicks submit, waits for the redirect off `/login`, captures cookies + User-Agent + the per-request `gbcsrf` token, and quits the browser.
+  - `/account/vehicles` and `/graphql` calls still go through plain Faraday with the captured cookies — the browser only runs during the login step.
+
+### Removed
+
+- FlareSolverr support. The integration is no longer needed; the related UI section, env-var fallback, "Test connection" button, `lib/gasbuddy/flaresolverr.rb`, and its tests are all gone. The unused `gasbuddy_settings.flaresolverr_url` column stays for now so existing DBs don't need a destructive migration.
+
+### Notes for upgraders
+
+- The Docker image grew by ~150 MB due to bundling Chromium. Self-hosted home-server use case justifies the size; the alternative (proxying through an external CF-bypass service) doesn't reliably work for sites whose login is JSON-with-custom-headers like GasBuddy's.
+- The `CHROMIUM_PATH` env var lets you point the browser at a different binary if needed; default is `/usr/bin/chromium` (set in the Dockerfile).
+- After upgrade, run a manual sync. The first one will spawn a browser, log in fresh, and store auth cookies. Subsequent syncs reuse those cookies for ~30 days (cf_clearance lifespan); after that the browser launches again.
+
 ## [0.7.3] - 2026-05-02
 
 ### Fixed

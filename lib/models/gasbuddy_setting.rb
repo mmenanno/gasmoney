@@ -14,32 +14,12 @@ module GasMoney
     encrypts :password
     encrypts :cookies_json
 
-    validates :flaresolverr_url, format: { with: %r{\Ahttps?://[^\s]+\z} }, allow_blank: true
-
     def self.current
       first || create!
     end
 
     def credentials_present?
       username.to_s.strip.present? && password.to_s.strip.present?
-    end
-
-    def flaresolverr_endpoint
-      url = flaresolverr_url.to_s.strip
-      return if url.empty?
-
-      env_url = ENV["FLARESOLVERR_URL"].to_s.strip
-      url == env_url ? env_url : url
-    end
-
-    # Effective FlareSolverr URL — DB value takes precedence over the env
-    # var. Both must be valid http(s) URLs; otherwise return nil so the
-    # sync code can short-circuit with a clear error.
-    def self.effective_flaresolverr_url
-      from_db = current.flaresolverr_url.to_s.strip
-      from_env = ENV["FLARESOLVERR_URL"].to_s.strip
-      url = from_db.empty? ? from_env : from_db
-      url.match?(%r{\Ahttps?://[^\s]+\z}) ? url : nil
     end
   end
 end

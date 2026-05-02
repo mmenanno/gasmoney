@@ -160,31 +160,6 @@ class AppTest < ActiveSupport::TestCase
     assert_nil(fillup.l_per_100km)
   end
 
-  test "POST /sync/flaresolverr/test surfaces a typed error when the host is unreachable" do
-    stub_request(:get, "http://flare.test/").to_raise(Faraday::ConnectionFailed.new("connection refused"))
-
-    post "/sync/flaresolverr/test", { flaresolverr_url: "http://flare.test" }
-
-    assert_predicate(last_response, :redirect?)
-    follow_redirect!
-
-    assert_match(/FlareSolverr error/, last_response.body)
-  end
-
-  test "POST /sync/flaresolverr/test reports the version on a healthy instance" do
-    stub_request(:get, "http://flare.test/")
-      .to_return(
-        status: 200,
-        body: JSON.generate(msg: "FlareSolverr is ready!", version: "3.3.21"),
-        headers: { "Content-Type" => "application/json" },
-      )
-
-    post "/sync/flaresolverr/test", { flaresolverr_url: "http://flare.test" }
-    follow_redirect!
-
-    assert_match(/Connected to FlareSolverr v3\.3\.21/, last_response.body)
-  end
-
   test "POST /fillups/:id/delete removes the fillup" do
     vehicle = create_vehicle
     fillup = create_fillup(vehicle: vehicle)

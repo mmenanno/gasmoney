@@ -28,29 +28,4 @@ class GasbuddySettingTest < ActiveSupport::TestCase
 
     assert_predicate(setting, :credentials_present?)
   end
-
-  test "effective_flaresolverr_url prefers DB value over env var" do
-    GasMoney::GasbuddySetting.current.update!(flaresolverr_url: "http://from-db:8191")
-    ENV["FLARESOLVERR_URL"] = "http://from-env:8191"
-
-    assert_equal("http://from-db:8191", GasMoney::GasbuddySetting.effective_flaresolverr_url)
-  ensure
-    ENV.delete("FLARESOLVERR_URL")
-  end
-
-  test "effective_flaresolverr_url returns nil when neither source is set" do
-    GasMoney::GasbuddySetting.current.update!(flaresolverr_url: nil)
-    ENV.delete("FLARESOLVERR_URL")
-
-    assert_nil(GasMoney::GasbuddySetting.effective_flaresolverr_url)
-  end
-
-  test "effective_flaresolverr_url rejects malformed values" do
-    GasMoney::GasbuddySetting.current.update!(flaresolverr_url: nil)
-    ENV["FLARESOLVERR_URL"] = "notaurl"
-
-    assert_nil(GasMoney::GasbuddySetting.effective_flaresolverr_url)
-  ensure
-    ENV.delete("FLARESOLVERR_URL")
-  end
 end

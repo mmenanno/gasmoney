@@ -46,7 +46,6 @@ module GasMoney
         setting = GasbuddySetting.current
         return unless setting.auto_sync_enabled
         return unless setting.credentials_present?
-        return unless GasbuddySetting.effective_flaresolverr_url
 
         GasBuddy::Sync.run(trigger: "scheduled", logger: logger)
       end

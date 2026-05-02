@@ -72,12 +72,11 @@ module GasMoney
         )
         @setting = GasbuddySetting.current
         @client = Client.new(
-          setting:          @setting,
-          flaresolverr_url: GasbuddySetting.effective_flaresolverr_url,
+          setting: @setting,
           # Pipe Client log output into the SyncRun log so the auth
-          # flow ("Solving Cloudflare challenge", "Login succeeded;
-          # N cookies stored") is visible in the UI.
-          logger:           SyncRunLogger.new(@run, @logger),
+          # flow ("Launching headless Chromium", "Login complete —
+          # captured N cookies") is visible in the UI.
+          logger:  SyncRunLogger.new(@run, @logger),
         )
 
         do_run
@@ -113,8 +112,6 @@ module GasMoney
 
       def do_run
         fail_run!("GasBuddy credentials are not set") unless @setting.credentials_present?
-
-        fail_run!("FlareSolverr URL is not configured") unless GasbuddySetting.effective_flaresolverr_url
 
         @run.log!(:info, "Fetching vehicle list")
         vehicles_html = @client.get("/account/vehicles").body
