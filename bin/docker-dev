@@ -1,0 +1,60 @@
+#!/bin/bash
+# Local Docker development helper. Decrypts .env via dotenvx (so
+# real credentials never sit unencrypted on disk), then runs the
+# common build/run/exec cycles against docker-compose.dev.yml.
+#
+# Usage:
+#   bin/docker-dev up         build (if needed) + run, tail logs
+#   bin/docker-dev rebuild    --no-cache rebuild from scratch
+#   bin/docker-dev down       stop + remove
+#   bin/docker-dev shell      exec into the running container
+#   bin/docker-dev logs       tail container logs (chromium stderr included)
+#   bin/docker-dev sync       trigger a manual sync via /sync/run
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+cmd="${1:-up}"
+
+require_dotenvx() {
+  if ! command -v dotenvx >/dev/null; then
+    echo "dotenvx not found. brew install dotenvx" >&2
+    exit 1
+  fi
+  if [[ ! -f .env ]]; then
+    echo "No .env file. Copy .env.example -> .env, fill in values, then dotenvx encrypt." >&2
+    exit 1
+  fi
+}
+
+case "$cmd" in
+  up)
+    require_dotenvx
+    dotenvx run -- docker compose -f docker-compose.dev.yml up --build
+    ;;
+  rebuild)
+    require_dotenvx
+    docker compose -f docker-compose.dev.yml build --no-cache
+    dotenvx run -- docker compose -f docker-compose.dev.yml up
+    ;;
+  down)
+    docker compose -f docker-compose.dev.yml down
+    ;;
+  shell)
+    docker compose -f docker-compose.dev.yml exec gasmoney bash
+    ;;
+  logs)
+    docker compose -f docker-compose.dev.yml logs -f --tail=200
+    ;;
+  sync)
+    # Trigger a manual sync via the running container's HTTP endpoint.
+    # The full chromium output (including stderr) appears in `bin/docker-dev logs`.
+    curl -fsS -X POST http://localhost:9292/sync/run -o /dev/null -w "POST /sync/run -> %{http_code}\n"
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    echo "Usage: $0 {up|rebuild|down|shell|logs|sync}" >&2
+    exit 1
+    ;;
+esac

@@ -45,8 +45,18 @@ module GasMoney
       LOGIN_URL = "https://iam.gasbuddy.com/login"
       VEHICLES_URL = "https://www.gasbuddy.com/account/vehicles"
 
-      DEFAULT_TIMEOUT = 60      # seconds, total browser lifetime
-      LOGIN_NAV_TIMEOUT = 30    # seconds, after submit before we expect /account/*
+      PROCESS_TIMEOUT = 60      # seconds, time for chromium to bind its CDP port
+      LOGIN_NAV_TIMEOUT = 60    # seconds, time for any single nav step (form render, post-login redirect)
+
+      # Strips environment variables that would corrupt Chromium's
+      # startup. `LD_PRELOAD=libjemalloc` (set in the Dockerfile for
+      # the Ruby process) collides with Chromium's PartitionAlloc and
+      # crashes the renderer before Ferrum's CDP handshake. The unset
+      # is scoped to the Chromium spawn: child Chromium inherits the
+      # cleaned env, while puma continues to benefit from jemalloc in
+      # this process. Other variables that could trip Chromium (e.g.
+      # MALLOC_CONF, the matching jemalloc tunable) are also dropped.
+      ENV_KEYS_TO_STRIP = ["LD_PRELOAD", "MALLOC_CONF"].freeze
 
       def initialize(logger: nil)
         @logger = logger
@@ -62,23 +72,27 @@ module GasMoney
         data_dir = chromium_data_dir
 
         log(:info, "Launching headless Chromium (#{browser_path})")
-        browser = Ferrum::Browser.new(
-          headless: true,
-          browser_path: browser_path,
-          process_timeout: 30,
-          timeout: LOGIN_NAV_TIMEOUT,
-          window_size: [1280, 800],
-          browser_options: chromium_flags(data_dir),
-        )
+        browser = with_chromium_env do
+          Ferrum::Browser.new(
+            headless: true,
+            browser_path: browser_path,
+            process_timeout: PROCESS_TIMEOUT,
+            timeout: LOGIN_NAV_TIMEOUT,
+            window_size: [1280, 800],
+            browser_options: chromium_flags(data_dir),
+          )
+        end
 
         run_login(browser, username, password)
       rescue Ferrum::DeadBrowserError, Ferrum::ProcessTimeoutError => e
-        # Surface the most-likely cause when Chromium silently dies:
-        # missing shared libs, restricted seccomp profile, /tmp full,
-        # or insufficient /dev/shm. Operator can check the container's
-        # stderr for chromium's own diagnostics.
-        raise LaunchFailed, "Chromium exited before Ferrum could connect (#{e.class}: #{e.message}). " \
-                            "Check the container's stderr for the actual chromium error."
+        # When Chromium dies before Ferrum can connect, the only
+        # actionable signal is the binary's own stderr. We can't
+        # capture that from this side (Ferrum spawns the process), so
+        # we point the operator at the container logs and surface the
+        # underlying timeout/dead-browser distinction in the message.
+        raise LaunchFailed,
+          "Chromium exited before Ferrum could connect (#{e.class.name.split("::").last}: #{e.message}). " \
+          "Inspect chromium stderr in the container logs for the underlying cause."
       ensure
         begin
           browser&.quit
@@ -160,6 +174,14 @@ module GasMoney
           "mute-audio" => nil,
           "user-data-dir" => data_dir,
         }
+      end
+
+      def with_chromium_env
+        saved = ENV_KEYS_TO_STRIP.to_h { |k| [k, ENV.fetch(k, nil)] }
+        ENV_KEYS_TO_STRIP.each { |k| ENV.delete(k) }
+        yield
+      ensure
+        saved.each { |k, v| ENV[k] = v if v }
       end
 
       def chromium_data_dir

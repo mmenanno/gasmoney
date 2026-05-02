@@ -74,7 +74,7 @@ The first boot creates `db/gasmoney.sqlite3` and an `db/encryption.key` file (mo
 
 #### Local env via dotenvx
 
-For local testing of the auto-sync code (which talks to a real FlareSolverr instance), use [dotenvx](https://dotenvx.com/) so the `.env` file lives encrypted on disk:
+For local testing of the auto-sync code (which spawns a real Chromium and talks to GasBuddy), use [dotenvx](https://dotenvx.com/) so the `.env` file lives encrypted on disk:
 
 ```bash
 brew install dotenvx
@@ -88,6 +88,25 @@ dotenvx run -- bundle exec rackup -p 9292 -o 127.0.0.1
 
 Both `.env` and `.env.keys` are gitignored. Production deployments set the env vars directly on the container — dotenvx is dev-only.
 
+#### Local Docker dev loop
+
+Chromium-environment bugs only reproduce inside the production image, so debugging through GHCR + Unraid is too slow. `bin/docker-dev` runs the production Dockerfile locally with `.env` decrypted via dotenvx:
+
+```bash
+bin/docker-dev up         # build + run, tail logs
+bin/docker-dev shell      # exec into the running container
+bin/docker-dev sync       # POST /sync/run against the local container
+bin/docker-dev rebuild    # --no-cache rebuild
+bin/docker-dev down       # stop + remove
+```
+
+Inside the container, `bin/test-browser` exercises just the Chromium login flow (skips the rest of the app), which is the fastest way to triage `Ferrum::DeadBrowserError`-class issues:
+
+```bash
+bin/docker-dev shell
+GASBUDDY_USERNAME=… GASBUDDY_PASSWORD=… bin/test-browser
+```
+
 ## Importing fuel logs
 
 1. Export a CSV from GasBuddy (Account → Activity → Export).
@@ -98,14 +117,13 @@ The importer dedups on `(vehicle_id, filled_at, odometer, quantity_liters)`, so 
 
 ## Auto-sync from GasBuddy
 
-GasBuddy is fully behind Cloudflare's challenge gate, so plain HTTP clients can't authenticate. Gasmoney shells the login through [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) — point the integration at any reachable instance and it'll handle the challenge once, capturing session cookies that subsequent requests reuse.
+GasBuddy is fully behind Cloudflare's challenge gate, so plain HTTP clients can't authenticate. Gasmoney bundles a headless Chromium and drives the login itself: the browser solves the JS challenge naturally, fills the React form, and hands captured cookies + User-Agent to a plain Faraday client for subsequent data calls. No external CF-bypass service is required.
 
 Setup, on the **Sync** page:
 
 1. **GasBuddy account** — enter your username/email + password. Stored encrypted at rest (AES-256-GCM via ActiveRecord::Encryption).
-2. **FlareSolverr** — paste your instance URL (e.g. `http://10.0.0.5:8191`). The `FLARESOLVERR_URL` env var is honoured as a fallback if you'd rather configure it that way.
-3. **Sync now** — runs a one-off pass: logs in, scrapes the vehicle list, then for each vehicle you've linked locally (see step 4) reconciles fuel-log entries.
-4. **Vehicle linking** — after the first sync, the vehicle table populates with the GasBuddy garage. Pick which local vehicle each remote vehicle maps to. Unlinked remotes are skipped.
+2. **Sync now** — runs a one-off pass: spawns Chromium, logs in, scrapes the vehicle list, then for each vehicle you've linked locally (see step 3) reconciles fuel-log entries. Captured cookies are reused for ~30 days (cf_clearance lifespan); after that the next sync launches a fresh browser.
+3. **Vehicle linking** — after the first sync, the vehicle table populates with the GasBuddy garage. Pick which local vehicle each remote vehicle maps to. Unlinked remotes are skipped.
 
 Per-entry behaviour during reconciliation:
 - If a fillup already carries the GasBuddy entry's UUID, skip it.

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-05-02
+
+### Fixed
+
+- `Ferrum::DeadBrowserError` reproducing on amd64 deployments after the 0.8.1 dep additions. Root cause was the global `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2` (set on the Ruby/puma process for memory-fragmentation reasons). Chromium inherits parent env on spawn, and jemalloc's allocator collides with Chromium's PartitionAlloc — the renderer crashes before Ferrum's CDP handshake completes. The dev environment didn't catch this because arm64's library path (`/usr/lib/aarch64-linux-gnu/...`) doesn't match the hardcoded amd64 path, so the preload silently no-ops there. `Browser#login` now scopes a `LD_PRELOAD` + `MALLOC_CONF` unset to the chromium spawn, so child Chromium starts with a clean allocator while puma keeps its jemalloc benefit.
+- Slowness budget for the launch handshake bumped to 60s (`PROCESS_TIMEOUT` and `LOGIN_NAV_TIMEOUT`). Cold first-launch on a small ARM home server can exceed the previous 30s on the form-render step.
+
+### Changed
+
+- Trimmed 17 redundant apt packages from the runtime image. `chromium` on debian:trixie-slim already pulls every shared lib it needs (libnss3, libgbm1, libgtk-3-0, libdrm2, etc.) through its regular apt dep tree even with `--no-install-recommends`. The 0.8.1 explicit list was inherited from a Playwright-style "list every transitive lib" pattern that doesn't apply when the distro package manages the deps. Image is now `chromium + fonts-liberation` only (fonts are still needed because absent fonts make Chromium fall back to symbol-only rendering, which Cloudflare flags). Image size drops by ~80 MB.
+
+### Added
+
+- Local Docker dev workflow (`bin/docker-dev`, `docker-compose.dev.yml`). `bin/docker-dev up` builds and runs the production image locally with credentials decrypted from `.env` via dotenvx; `bin/docker-dev shell` execs into the container; `bin/docker-dev sync` triggers a manual sync against the local container. This closes the loop on chromium-environment bugs that previously required a full GHCR push + Unraid pull cycle to reproduce.
+- `bin/test-browser` script for fast end-to-end browser smoke tests inside the container. Exercises `Browser.login` directly with `GASBUDDY_USERNAME` / `GASBUDDY_PASSWORD` from env, surfaces ruby errors and chromium stderr in one place. Fastest path to diagnose `Ferrum::DeadBrowserError`-class issues without touching the rest of the app.
+
 ## [0.8.1] - 2026-05-02
 
 ### Fixed

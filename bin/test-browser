@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Smoke-test the bundled Chromium + Browser.login flow without
+# touching the rest of the app. Run inside the running container:
+#
+#   bin/docker-dev shell
+#   GASBUDDY_USERNAME=u GASBUDDY_PASSWORD=p bin/test-browser
+#
+# Ruby errors and chromium stderr both surface in this script's
+# output. Fastest way to diagnose Ferrum DeadBrowserError-class
+# issues end-to-end.
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+require "logger"
+require "gasbuddy/browser"
+
+logger = Logger.new($stdout)
+logger.formatter = ->(_, _, _, msg) { "#{msg}\n" }
+
+username = ENV["GASBUDDY_USERNAME"] || abort("GASBUDDY_USERNAME not set")
+password = ENV["GASBUDDY_PASSWORD"] || abort("GASBUDDY_PASSWORD not set")
+
+logger.info("Starting browser smoke test")
+result = GasMoney::GasBuddy::Browser.new(logger: logger).login(
+  username: username,
+  password: password,
+)
+
+logger.info("OK")
+logger.info("  cookies: #{result[:cookies].size}")
+logger.info("  user_agent: #{result[:user_agent]}")
+logger.info("  csrf_token: #{result[:csrf_token]}")
+logger.info("  final_url: #{result[:final_url]}")

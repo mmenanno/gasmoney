@@ -1,0 +1,35 @@
+# Local development build. Builds the image from the local Dockerfile
+# and runs it with credentials decrypted from .env (via dotenvx). Use
+# this to reproduce production-environment issues without going
+# through the full CI/GHCR/Unraid loop.
+#
+# Workflow:
+#   bin/docker-dev up        # build + run, tail logs in foreground
+#   bin/docker-dev rebuild   # full rebuild from scratch
+#   bin/docker-dev shell     # exec into the running container
+#   bin/docker-dev down      # stop + remove
+
+services:
+  gasmoney:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gasmoney:dev
+    container_name: gasmoney-dev
+    ports:
+      - "9292:9292"
+    volumes:
+      - ./state-dev:/app/state
+    # Credentials + encryption keys come from the dotenvx-decrypted .env
+    # file. dotenvx run -- docker compose ... injects these as plain
+    # env vars before docker compose starts, so the container only ever
+    # sees the decrypted values for the duration of this session.
+    environment:
+      GASMONEY_ENCRYPTION_KEY: "${GASMONEY_ENCRYPTION_KEY:-}"
+      GASMONEY_DETERMINISTIC_KEY: "${GASMONEY_DETERMINISTIC_KEY:-}"
+      GASMONEY_KEY_DERIVATION_SALT: "${GASMONEY_KEY_DERIVATION_SALT:-}"
+      RACK_ENV: "production"
+      # Bigger /dev/shm than Docker's 64MB default — Chromium is happier
+      # with at least 256MB even with --disable-dev-shm-usage as a
+      # safety net.
+    shm_size: "512m"
