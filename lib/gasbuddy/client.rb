@@ -83,8 +83,16 @@ module GasMoney
         raise AuthRequired, "FlareSolverr login returned HTTP #{result[:status]}" if result[:status] && result[:status] >= 400
 
         cookies = serialize_cookies(result[:cookies])
-        csrf = extract_csrf_token(result[:html])
+        if cookies.empty?
+          # FlareSolverr says "ok" but no cookies came back. Either the
+          # POST didn't actually log in (wrong creds, form changed, JS
+          # challenge required) or the headless browser dropped the
+          # cookies. Refusing to store an empty jar avoids an infinite
+          # auth-required → re-auth → 0-cookies → auth-required loop.
+          raise AuthRequired, "FlareSolverr returned 0 cookies — login likely failed"
+        end
 
+        csrf = extract_csrf_token(result[:html])
         @setting.update!(
           cookies_json:        cookies.to_json,
           user_agent:          result[:user_agent],
@@ -117,6 +125,14 @@ module GasMoney
         case response.status
         when 200..299
           response
+        when 301, 302, 303, 307, 308
+          # GasBuddy redirects unauthenticated browsers to
+          # iam.gasbuddy.com/login. Treat any redirect to the IAM
+          # subdomain as "auth required"; other redirects (e.g.
+          # canonicalisation) we still treat as auth-required to be
+          # safe — re-auth is idempotent.
+          location = response.headers["location"].to_s
+          raise AuthRequired, "Redirected to #{location} — session needs refreshing"
         when 401
           raise AuthRequired, "GasBuddy returned 401"
         when 403

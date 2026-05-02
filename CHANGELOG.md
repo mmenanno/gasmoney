@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-05-02
+
+### Fixed
+
+- HTTP 3xx responses from GasBuddy now route through the auth-required retry path. GasBuddy returns 302 to `iam.gasbuddy.com/login` for any unauthenticated request to `/account/*`; the client previously dropped 302 into the catch-all "Unexpected response" branch and aborted the sync without re-authing. Now any 3xx redirect raises `AuthRequired`, which triggers `refresh_cookies!` and a single retry.
+- `refresh_cookies!` now raises `AuthRequired` when FlareSolverr returns 0 cookies. Without this guard, a silently-failed login (wrong credentials, form changed, JS challenge needed for actual login) stored an empty jar that caused an infinite re-auth loop on the next request.
+
+### Changed
+
+- The `Client`'s log output (e.g. "Solving Cloudflare challenge…", "Login succeeded; N cookies stored") now writes to the active `SyncRun` so the auth flow is visible in the UI's per-run log. Previously these went to a logger that was always `nil` in the sync path, making auth failures invisible from the dashboard.
+
 ## [0.7.1] - 2026-05-02
 
 ### Fixed

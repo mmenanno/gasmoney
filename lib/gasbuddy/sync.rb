@@ -74,7 +74,10 @@ module GasMoney
         @client = Client.new(
           setting:          @setting,
           flaresolverr_url: GasbuddySetting.effective_flaresolverr_url,
-          logger:           @logger,
+          # Pipe Client log output into the SyncRun log so the auth
+          # flow ("Solving Cloudflare challenge", "Login succeeded;
+          # N cookies stored") is visible in the UI.
+          logger:           SyncRunLogger.new(@run, @logger),
         )
 
         do_run
@@ -82,6 +85,28 @@ module GasMoney
         finalize_failed!(e)
       ensure
         @setting&.update!(last_sync_at: Time.now.utc.iso8601, last_sync_status: status_payload.to_json)
+      end
+
+      # Adapter that lets Client#log(:info, "...") write to both the
+      # SyncRun's persisted log and any optional out-of-band logger
+      # (e.g. STDERR for local development).
+      class SyncRunLogger
+        def initialize(run, fallback = nil)
+          @run = run
+          @fallback = fallback
+        end
+
+        def info(msg)  = forward(:info, msg)
+        def warn(msg)  = forward(:warn, msg)
+        def error(msg) = forward(:error, msg)
+        def debug(msg) = forward(:info, msg)
+
+        private
+
+        def forward(level, msg)
+          @run.log!(level, msg.to_s)
+          @fallback&.public_send(level, msg)
+        end
       end
 
       private
