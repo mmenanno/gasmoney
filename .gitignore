@@ -17,9 +17,12 @@
 
 # At-rest encryption master keys. Auto-generated on first boot if env
 # vars aren't supplied; losing this file makes encrypted credentials
-# unrecoverable, so back it up alongside the SQLite DB.
-/db/encryption.key
-/state/encryption.key
+# unrecoverable, so back it up alongside the SQLite DB. The wildcard
+# rule is the safety net — in-memory test runs (which shouldn't write
+# any key file at all, but did briefly in 0.6.1 dev) would otherwise
+# drop one at the repo root.
+encryption.key
+**/encryption.key
 
 # Logs / tmp
 /log/
