@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-05-02
+
+### Fixed
+
+- GasBuddy login now actually completes. Previous releases POSTed `username=...&password=...` form-urlencoded to `iam.gasbuddy.com/login` via FlareSolverr, which returned 200 + 3 bootstrap cookies but no auth cookies — the request never reached GasBuddy's login handler because the actual login endpoint requires:
+  - `Content-Type: application/json`
+  - JSON body with **`identifier`** (not `username`), `password`, `return_url`, and `query`
+  - A per-request `gbcsrf` header read from `window.gbcsrf = "1.xxx"` in the login page HTML
+
+  FlareSolverr's `request.post` doesn't support custom Content-Type or extra headers, so it can't replay this directly. The new flow:
+
+  1. GET `/login` via FlareSolverr — solves the Cloudflare challenge and returns the page HTML, the cookies (including `cf_clearance`), and the matching `User-Agent`.
+  2. Extract `gbcsrf` from the HTML.
+  3. POST the JSON login from this Ruby client with the captured cookies + UA + CSRF header. The `cf_clearance` cookie + matching UA lets the request through Cloudflare without another solve.
+  4. Merge auth cookies (from the login response's `Set-Cookie`) with the bootstrap cookies and persist.
+
+  This relies on Cloudflare's `cf_clearance` being portable from the FlareSolverr host's IP to the gasmoney host's IP. If GasBuddy's CF policy is IP-bound the second POST will hit a fresh CF challenge — the client now detects that case and raises a clear `AuthRequired` error pointing at the IP-binding theory rather than failing silently.
+
 ## [0.7.2] - 2026-05-02
 
 ### Fixed

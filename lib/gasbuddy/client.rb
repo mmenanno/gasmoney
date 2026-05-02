@@ -5,19 +5,29 @@ require "faraday/cookie_jar"
 require "http-cookie"
 require "json"
 require "nokogiri"
+require "uri"
 
 require_relative "flaresolverr"
 
 module GasMoney
   module GasBuddy
-    # HTTP client for authenticated GasBuddy traffic. The Cloudflare
-    # gate is solved once via FlareSolverr (yielding cookies + a
-    # matching User-Agent); afterwards plain Faraday calls work as
-    # long as we present those cookies and UA together. On a 403/cf-
-    # mitigated response we re-run the login flow and retry once.
+    # HTTP client for authenticated GasBuddy traffic.
     #
-    # Credentials and the FlareSolverr URL are loaded out of
-    # GasbuddySetting and never logged.
+    # Auth flow (refresh_cookies!):
+    #   1. GET https://iam.gasbuddy.com/login through FlareSolverr to
+    #      clear Cloudflare's JS challenge. Captures cookies (including
+    #      cf_clearance) + the matching User-Agent + the per-request
+    #      `gbcsrf` token rendered into the page HTML.
+    #   2. POST JSON {identifier, password, return_url} directly to
+    #      iam.gasbuddy.com/login from this Ruby client, presenting
+    #      the cookies + UA + gbcsrf header captured in step 1. The
+    #      cf_clearance cookie + matching UA lets the request through
+    #      Cloudflare without another JS solve. Successful login
+    #      returns 200 + sets the auth cookies via Set-Cookie.
+    #   3. The merged cookie jar (CF clearance + auth cookies) is
+    #      persisted to the GasbuddySetting row, encrypted at rest.
+    #
+    # On any subsequent 3xx/401/403-cf request, refresh_cookies! re-runs.
     class Client
       class Error < StandardError; end
       class AuthRequired < Error; end
@@ -25,7 +35,8 @@ module GasMoney
       class Blocked < Error; end
 
       BASE_URL    = "https://www.gasbuddy.com"
-      LOGIN_URL   = "https://iam.gasbuddy.com/login"
+      IAM_URL     = "https://iam.gasbuddy.com"
+      LOGIN_URL   = "#{IAM_URL}/login".freeze
       OPEN_TIMEOUT = 10
       READ_TIMEOUT = 30
 
@@ -61,7 +72,7 @@ module GasMoney
         # We don't know the exact name of GasBuddy's session cookie, so
         # treat "we have any cookies stored" as the signal that we tried
         # to authenticate at some point. If the session has actually
-        # expired the next request returns 403 and the retry path
+        # expired the next request returns 403/302 and the retry path
         # transparently runs the FlareSolverr login flow.
         parsed_cookies.any?
       end
@@ -70,41 +81,128 @@ module GasMoney
         raise Error, "FlareSolverr URL not configured" if @flaresolverr_url.to_s.strip.empty?
         raise Error, "GasBuddy credentials not set" unless @setting.credentials_present?
 
-        log(:info, "Solving Cloudflare challenge and logging in via FlareSolverr")
-        solver = FlareSolverr.new(@flaresolverr_url)
-        result = solver.login(
-          login_url: LOGIN_URL,
-          post_data: URI.encode_www_form(
-            username: @setting.username,
-            password: @setting.password,
-          ),
-        )
+        log(:info, "Solving Cloudflare challenge via FlareSolverr")
+        cf_cookies, user_agent, csrf = fetch_login_page_through_solver
 
-        raise AuthRequired, "FlareSolverr login returned HTTP #{result[:status]}" if result[:status] && result[:status] >= 400
+        log(:info, "Got #{cf_cookies.size} bootstrap cookies + CSRF token; submitting login")
+        auth_cookies = post_login_json(cf_cookies, user_agent, csrf)
 
-        cookies = serialize_cookies(result[:cookies])
-        if cookies.empty?
-          # FlareSolverr says "ok" but no cookies came back. Either the
-          # POST didn't actually log in (wrong creds, form changed, JS
-          # challenge required) or the headless browser dropped the
-          # cookies. Refusing to store an empty jar avoids an infinite
-          # auth-required → re-auth → 0-cookies → auth-required loop.
-          raise AuthRequired, "FlareSolverr returned 0 cookies — login likely failed"
-        end
-
-        csrf = extract_csrf_token(result[:html])
+        merged = merge_cookies(cf_cookies, auth_cookies)
         @setting.update!(
-          cookies_json:        cookies.to_json,
-          user_agent:          result[:user_agent],
+          cookies_json:        merged.to_json,
+          user_agent:          user_agent,
           csrf_token:          csrf,
           cookies_fetched_at:  Time.now.utc.iso8601,
         )
         @setting.reload
         @connection = nil
-        log(:info, "Login succeeded; #{cookies.size} cookies stored")
+        log(:info, "Login succeeded; #{merged.size} cookies stored (#{auth_cookies.size} from auth response)")
       end
 
       private
+
+      # Step 1 of the auth flow. FlareSolverr loads /login in a real
+      # browser, solves the CF challenge, and returns the resulting
+      # HTML + cookies + the User-Agent it used. We extract the
+      # gbcsrf token from the HTML's `window.gbcsrf = "..."` literal.
+      def fetch_login_page_through_solver
+        solver = FlareSolverr.new(@flaresolverr_url)
+        result = solver.get(url: LOGIN_URL)
+
+        raise AuthRequired, "FlareSolverr returned HTTP #{result[:status]}" if result[:status] && result[:status] >= 400
+
+        cookies = serialize_cookies(result[:cookies])
+        raise AuthRequired, "FlareSolverr returned 0 cookies from /login" if cookies.empty?
+
+        csrf = extract_csrf_token(result[:html])
+        raise AuthRequired, "Couldn't find gbcsrf token in login page HTML" if csrf.nil? || csrf.empty?
+
+        [cookies, result[:user_agent], csrf]
+      end
+
+      # Step 2 of the auth flow. Direct JSON POST from this Ruby client,
+      # carrying the CF clearance cookies + matching UA + CSRF header.
+      # No FlareSolverr involved — once CF is cleared, plain HTTP works
+      # for the rest of this exchange. Returns the auth cookies that
+      # came back via Set-Cookie.
+      def post_login_json(cf_cookies, user_agent, csrf)
+        conn = Faraday.new(url: IAM_URL) do |f|
+          f.options.open_timeout = OPEN_TIMEOUT
+          f.options.timeout      = READ_TIMEOUT
+          f.adapter(Faraday.default_adapter)
+        end
+
+        body = {
+          identifier: @setting.username,
+          password: @setting.password,
+          return_url: "#{BASE_URL}/account/vehicles",
+          query: "?return_url=#{BASE_URL}/account/vehicles",
+        }
+
+        response = conn.post("/login") do |req|
+          req.headers["User-Agent"]    = user_agent if user_agent.to_s != ""
+          req.headers["Content-Type"]  = "application/json"
+          req.headers["Accept"]        = "application/json"
+          req.headers["Origin"]        = IAM_URL
+          req.headers["Referer"]       = LOGIN_URL
+          req.headers["gbcsrf"]        = csrf
+          req.headers["Cookie"]        = cookie_header(cf_cookies)
+          req.body = JSON.generate(body)
+        end
+
+        unless (200..299).cover?(response.status)
+          if response.status == 403 && response.headers["cf-mitigated"]&.include?("challenge")
+            raise AuthRequired,
+              "Login POST hit a Cloudflare challenge — cf_clearance cookie may be IP-bound to the FlareSolverr host"
+          end
+
+          message = parse_error_message(response.body) || "HTTP #{response.status}"
+          raise AuthRequired, "Login failed: #{message}"
+        end
+
+        parse_set_cookie_headers(response)
+      end
+
+      def merge_cookies(*lists)
+        # Later cookies (auth response) override earlier ones (CF
+        # bootstrap) when names collide.
+        lists.flatten.to_h { |c| [c[:name], c] }.values
+      end
+
+      def cookie_header(cookies)
+        cookies.map { |c| "#{c[:name]}=#{c[:value]}" }.join("; ")
+      end
+
+      def parse_set_cookie_headers(response)
+        # Faraday delivers Set-Cookie as a single string with multiple
+        # cookies separated by commas — except commas can also appear
+        # inside cookie values (e.g. expires dates). Use HTTP::Cookie
+        # to parse correctly.
+        raw = response.headers["set-cookie"]
+        return [] if raw.to_s.empty?
+
+        host = URI.parse(IAM_URL).host
+        HTTP::Cookie.parse(raw, IAM_URL).map do |c|
+          {
+            name: c.name,
+            value: c.value,
+            domain: c.domain || host,
+            path: c.path,
+            secure: c.secure?,
+            httpOnly: c.httponly?,
+            expires: c.expires&.to_i,
+          }.compact
+        end
+      end
+
+      def parse_error_message(body)
+        return if body.to_s.empty?
+
+        parsed = JSON.parse(body.to_s)
+        parsed["message"] || parsed["error"] || parsed.dig("error", "message")
+      rescue JSON::ParserError
+        body.to_s.slice(0, 200)
+      end
 
       def request(method, path, body: nil, headers: {})
         attempts = 0
@@ -127,10 +225,9 @@ module GasMoney
           response
         when 301, 302, 303, 307, 308
           # GasBuddy redirects unauthenticated browsers to
-          # iam.gasbuddy.com/login. Treat any redirect to the IAM
-          # subdomain as "auth required"; other redirects (e.g.
-          # canonicalisation) we still treat as auth-required to be
-          # safe — re-auth is idempotent.
+          # iam.gasbuddy.com/login. Re-auth is idempotent so we treat
+          # any 3xx as "session needs refreshing" — even canonicalisation
+          # redirects, since they're rare on /account paths.
           location = response.headers["location"].to_s
           raise AuthRequired, "Redirected to #{location} — session needs refreshing"
         when 401
@@ -139,7 +236,6 @@ module GasMoney
           raise AuthRequired, "Cloudflare challenge — need to refresh cookies" if response.headers["cf-mitigated"]&.include?("challenge")
 
           raise Blocked, "GasBuddy returned 403 (not a CF challenge)"
-
         when 429
           raise RateLimited, "GasBuddy returned 429 (rate limited)"
         when 500..599
@@ -216,10 +312,12 @@ module GasMoney
       def extract_csrf_token(html)
         return if html.to_s.empty?
 
-        # The page renders a meta or window.__NEXT_DATA__ blob with the
-        # CSRF token. Easiest extraction is via a regex against the raw
-        # HTML so we don't depend on the exact server-side framework.
-        match = html.match(/"csrfToken"\s*:\s*"([^"]+)"/) ||
+        # GasBuddy renders the per-request CSRF as a JS literal in the
+        # login page <script> tag: `window.gbcsrf = "1.xxx"`. Match
+        # that exact form first; fall back to looser patterns for
+        # forward-compat.
+        match = html.match(/window\.gbcsrf\s*=\s*"([^"]+)"/) ||
+          html.match(/"csrfToken"\s*:\s*"([^"]+)"/) ||
           html.match(/gbcsrf['"]?\s*:\s*['"]([^'"]+)/)
         match && match[1]
       end
