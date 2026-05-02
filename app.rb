@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "sinatra/base"
-require "securerandom"
 require "time"
 
 require_relative "lib/db"

@@ -4,7 +4,6 @@ require "faraday"
 require "faraday/cookie_jar"
 require "http-cookie"
 require "json"
-require "nokogiri"
 
 require_relative "browser"
 

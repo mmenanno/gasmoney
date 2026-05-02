@@ -2,7 +2,6 @@
 
 require "ferrum"
 require "fileutils"
-require "json"
 require "tmpdir"
 require "uri"
 

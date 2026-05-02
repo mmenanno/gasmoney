@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-05-02
+
+### Removed
+
+- Four unused `require` statements scattered across the codebase:
+  - `lib/gasbuddy/client.rb` — `require "nokogiri"` (HTML parsing moved to `Scraper` long ago).
+  - `lib/gasbuddy/browser.rb` — `require "json"` (only "JSON" reference left was in a doc comment).
+  - `lib/gasbuddy/garage.rb` — `require "active_record"` (no direct `ActiveRecord::*` references; the model classes pull it in transitively).
+  - `app.rb` — `require "securerandom"` (no `SecureRandom.*` calls anywhere in the file).
+- No actual gems removed — every entry in the Gemfile is still actively used somewhere. Just trimmed the noise that suggested otherwise.
+
 ## [0.10.5] - 2026-05-02
 
 ### Removed
