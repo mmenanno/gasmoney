@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-05-02
+
+### Fixed
+
+- GasBuddy login was hanging on Cloudflare's "Just a moment…" interstitial in 0.8.2. With Chromium successfully launching, the next failure surfaced: the iam.gasbuddy.com challenge fingerprints both `--headless` and `--headless=new` modes plus the CDP-driver flags (`--enable-automation`, `--keep-alive-for-test`, etc.) that Ferrum forces on every browser it spawns and which can't be stripped from outside the gem. Switched to running Chromium fully headed against an Xvfb virtual framebuffer — no `--headless` flag at all, just a real browser rendering to a virtual display. Cloudflare treats it like a normal browser and issues `cf_clearance` on first navigation. Adds `xvfb` + `xauth` apt deps and a `bin/chromium-xvfb` wrapper script that `xvfb-run`s the real `/usr/bin/chromium`. `CHROMIUM_PATH` now points at the wrapper so the rest of `Browser` is unchanged.
+
+### Changed
+
+- Dropped `--headless=new`, `--ozone-platform=headless`, and the rest of the headless-mode tuning from `chromium_flags` — irrelevant now that the launch is fully headed. Kept `--disable-blink-features=AutomationControlled` (Cloudflare still checks `navigator.webdriver`) and the rest of the container-friendly flags (no-sandbox, disable-dev-shm-usage, etc.).
+- `Browser#wait_for_form` and `Browser#wait_for_post_login` now log the page URL, title, and a 400-char body excerpt when their deadlines hit. Without this the operator had no way to tell whether the timeout was a stuck Cloudflare challenge, a real form whose selectors had drifted, or a network failure. The 0.8.2 production failure (CF interstitial) was identifiable only because of these logs.
+
+### Added
+
+- `bin/test-browser` is now bundled in the runtime image and uses `bundler/setup`, so the local-Docker dev loop can exercise just `Browser.login` from inside the production image.
+
 ## [0.8.2] - 2026-05-02
 
 ### Fixed

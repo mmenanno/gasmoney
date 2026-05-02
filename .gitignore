@@ -15,6 +15,9 @@
 /state/*.sqlite3
 /state/*.sqlite3-*
 
+# Local Docker dev state mount (bin/docker-dev maps ./state-dev → /app/state)
+/state-dev/
+
 # At-rest encryption master keys. Auto-generated on first boot if env
 # vars aren't supplied; losing this file makes encrypted credentials
 # unrecoverable, so back it up alongside the SQLite DB. The wildcard

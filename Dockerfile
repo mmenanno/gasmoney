@@ -25,8 +25,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       # extra: without standard fonts installed Chromium falls back to
       # symbol-only rendering, which Cloudflare's bot heuristics can
       # flag as automation.
+      #
+      # xvfb wraps Chromium so we can run it fully headed against a
+      # virtual framebuffer. Headless modes (both `--headless` and
+      # `--headless=new`) leave fingerprints that Cloudflare's
+      # iam.gasbuddy.com challenge picks up — Ferrum additionally adds
+      # `--enable-automation`, `--keep-alive-for-test`, and a handful
+      # of other CDP-driver flags that we can't strip from outside
+      # the gem. Running headed under Xvfb sidesteps all of that.
       chromium \
-      fonts-liberation
+      fonts-liberation \
+      xauth \
+      xvfb
 
 ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/usr/local/bundle \
@@ -34,7 +44,7 @@ ENV BUNDLE_DEPLOYMENT=1 \
     RACK_ENV=production \
     RUBY_YJIT_ENABLE=1 \
     GASMONEY_DB_PATH=/app/state/gasmoney.sqlite3 \
-    CHROMIUM_PATH=/usr/bin/chromium \
+    CHROMIUM_PATH=/usr/local/bin/chromium-xvfb \
     PORT=9292
 
 # ---- gems stage ----
@@ -64,7 +74,7 @@ FROM base AS source
 COPY --link lib    ./lib
 COPY --link views  ./views
 COPY --link public ./public
-COPY --link bin/start bin/init ./bin/
+COPY --link bin/start bin/init bin/test-browser bin/chromium-xvfb ./bin/
 COPY --link app.rb config.ru Gemfile Gemfile.lock VERSION ./
 
 # ---- final runtime ----
@@ -90,7 +100,8 @@ RUN set -eux; \
     useradd --uid 1000 --gid app --create-home --shell /bin/bash app; \
     mkdir -p /app/state /app/log; \
     chown -R 1000:1000 /app/state /app/log; \
-    chmod +x /app/bin/init /app/bin/start
+    chmod +x /app/bin/init /app/bin/start /app/bin/test-browser /app/bin/chromium-xvfb; \
+    ln -s /app/bin/chromium-xvfb /usr/local/bin/chromium-xvfb
 
 EXPOSE 9292
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

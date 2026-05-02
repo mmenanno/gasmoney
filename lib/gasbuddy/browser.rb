@@ -71,10 +71,17 @@ module GasMoney
         browser_path = locate_browser
         data_dir = chromium_data_dir
 
-        log(:info, "Launching headless Chromium (#{browser_path})")
+        log(:info, "Launching Chromium (#{browser_path})")
         browser = with_chromium_env do
+          # `headless: false` so Ferrum doesn't add `--headless`. The
+          # production launch goes through bin/chromium-xvfb which
+          # wraps Chromium in xvfb-run, so it's a real headed browser
+          # rendering to a virtual display. Cloudflare's iam.gasbuddy
+          # challenge fingerprints any `--headless`/`--headless=new`
+          # mode plus the CDP-driver flags Ferrum forces, so headed
+          # under Xvfb is the only mode it doesn't block.
           Ferrum::Browser.new(
-            headless: true,
+            headless: false,
             browser_path: browser_path,
             process_timeout: PROCESS_TIMEOUT,
             timeout: LOGIN_NAV_TIMEOUT,
@@ -152,22 +159,33 @@ module GasMoney
       end
 
       # Container-friendly flag set. Each flag has a specific reason:
+      #   disable-blink-features=AutomationControlled: hides the
+      #     `navigator.webdriver` property that CF's bot heuristics
+      #     check first.
       #   no-sandbox: container has no SUID-helper for the sandbox.
       #   disable-dev-shm-usage: Docker's default /dev/shm is 64MB,
       #     which Chromium will exhaust loading non-trivial pages.
-      #   disable-gpu / disable-software-rasterizer: no GPU in the
-      #     container; the software rasterizer eats memory.
+      #   disable-gpu: no GPU in the container. We deliberately do NOT
+      #     pass --disable-software-rasterizer because Cloudflare's
+      #     challenge runs WebGL/canvas fingerprinting and silently
+      #     fails (no cf_clearance) when those APIs aren't backed by
+      #     either real or software rasterization.
       #   disable-extensions / no-first-run: avoid one-time setup
       #     phases that can stall first launch.
       #   mute-audio: we never want sound.
       #   user-data-dir: explicit writable location so Chromium isn't
       #     racing to create one under /tmp on parallel runs.
+      #
+      # No `--headless` flag is passed: Chromium runs fully headed
+      # against the Xvfb display set up by bin/chromium-xvfb. Both
+      # `--headless` and `--headless=new` leave fingerprints that
+      # Cloudflare's iam.gasbuddy.com challenge picks up.
       def chromium_flags(data_dir)
         {
+          "disable-blink-features" => "AutomationControlled",
           "no-sandbox" => nil,
           "disable-dev-shm-usage" => nil,
           "disable-gpu" => nil,
-          "disable-software-rasterizer" => nil,
           "disable-extensions" => nil,
           "no-first-run" => nil,
           "no-default-browser-check" => nil,
@@ -199,10 +217,32 @@ module GasMoney
       def wait_for_form(page)
         deadline = Time.now + LOGIN_NAV_TIMEOUT
         until form_ready?(page)
-          raise LoginFailed, "Login form didn't render within #{LOGIN_NAV_TIMEOUT}s" if Time.now > deadline
+          if Time.now > deadline
+            log_page_state(page, "form-render timeout")
+            raise LoginFailed, "Login form didn't render within #{LOGIN_NAV_TIMEOUT}s (last url=#{page.url.inspect})"
+          end
 
           sleep 0.25
         end
+      end
+
+      # Dumps URL, title, and a body excerpt when a wait condition
+      # fails. Without this the operator has no way to tell whether
+      # we're stuck on Cloudflare's challenge, a rate-limit page,
+      # or a real login form whose selectors no longer match.
+      def log_page_state(page, label)
+        url = safe_eval(page) { page.url.to_s }
+        title = safe_eval(page) { page.title.to_s }
+        body = safe_eval(page) { page.evaluate("document.body && document.body.innerText || ''").to_s }
+        excerpt = body.gsub(/\s+/, " ").strip[0, 400]
+        log(:info, "#{label}: url=#{url.inspect} title=#{title.inspect}")
+        log(:info, "#{label}: body=#{excerpt.inspect}")
+      end
+
+      def safe_eval(_page)
+        yield
+      rescue Ferrum::Error, StandardError => e
+        "<unavailable: #{e.class.name.split("::").last}>"
       end
 
       def form_ready?(page)
@@ -251,7 +291,10 @@ module GasMoney
           # form redirects to return_url on success.
           return if !url.include?("iam.gasbuddy.com/login") && !url.empty?
 
-          raise LoginFailed, "No post-login navigation within #{LOGIN_NAV_TIMEOUT}s (still on #{url})" if Time.now > deadline
+          if Time.now > deadline
+            log_page_state(page, "post-login timeout")
+            raise LoginFailed, "No post-login navigation within #{LOGIN_NAV_TIMEOUT}s (still on #{url})"
+          end
 
           sleep 0.25
         end

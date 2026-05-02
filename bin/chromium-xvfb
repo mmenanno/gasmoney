@@ -1,0 +1,13 @@
+#!/bin/bash
+# Wraps /usr/bin/chromium with a fresh Xvfb display so Chromium runs
+# fully headed (no `--headless` flag) against a virtual framebuffer.
+# Cloudflare's bot challenge picks up on every headless mode + every
+# CDP-driver flag Ferrum forces; running real headed Chromium against
+# a virtual screen is the most reliable way to look like a browser.
+#
+# `xvfb-run -a` picks the next free display number, exports DISPLAY,
+# launches Xvfb, runs the wrapped command, and tears Xvfb down on
+# exit. Each Browser#login spawns its own Xvfb instance so concurrent
+# logins (if we ever do them) don't share a display.
+set -euo pipefail
+exec xvfb-run -a -s "-screen 0 1280x800x24" /usr/bin/chromium "$@"
