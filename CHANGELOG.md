@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-02
+
+### Added
+
+- Progressive Web App support. Browsers that support PWAs now offer "Add to Home Screen" / "Install app" prompts.
+  - `public/manifest.webmanifest` declares `name`, `short_name`, `start_url`, `display: standalone`, dark theme/background colours matching `--bg`, and 192/512 px PNG icons (with `purpose: "any maskable"` for Android adaptive icons) plus the SVG favicon as a vector fallback.
+  - `public/sw.js` is a small service worker that pre-caches the static app shell — CSS, JS, manifest, favicon, all PWA icons — and serves them cache-first. HTML, POSTs, redirects, and `/health` are passed straight through to the network so the dashboard and trip-cost calculator never serve stale data. The cache version (`gasmoney-shell-v1`) is bumped whenever the precache list changes.
+  - Layout adds `theme-color` (matches `--bg`), Apple `mobile-web-app-*` meta tags, and a service-worker registration shim that fails silently (logs a warning) so older browsers don't break.
+- `Sinatra::Base.mime_type :webmanifest, "application/manifest+json"` so Firefox honours `<link rel="manifest">` (the default mapping is `text/plain`).
+- `bin/build-icons` now also emits a 192 px variant and copies `icon-192.png` / `icon-512.png` into `public/icons/` for the manifest references.
+
 ## [0.2.1] - 2026-05-02
 
 ### Changed

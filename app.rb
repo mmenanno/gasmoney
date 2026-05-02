@@ -25,6 +25,11 @@ module GasMoney
 
     after { ActiveRecord::Base.connection_handler.clear_active_connections! }
 
+    # The PWA manifest needs application/manifest+json for some browsers
+    # (Firefox in particular) to honour `<link rel="manifest">`. Sinatra
+    # serves .webmanifest as text/plain by default.
+    mime_type :webmanifest, "application/manifest+json"
+
     helpers do
       def vehicles                  = Vehicle.ordered
       def vehicles_pinned_first     = Vehicle.pinned_first

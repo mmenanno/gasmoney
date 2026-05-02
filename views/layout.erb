@@ -2,17 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Gas Money</title>
+
+  <!-- PWA manifest + theming. theme-color paints the address bar / OS UI
+       chrome when the app is installed; matches --bg from style.css so
+       there's no seam at the top of the viewport. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#101113">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Gas Money">
+  <meta name="mobile-web-app-capable" content="yes">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="apple-touch-icon" href="/icons/icon-256.png">
+
   <script src="/select.js" defer></script>
   <script src="/confirm.js" defer></script>
+  <script>
+    // Service worker registration. The worker only caches the static
+    // app shell — see public/sw.js for scope details. Failures are
+    // logged but never block page rendering.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/sw.js").catch(function (err) {
+          console.warn("[gasmoney] service worker registration failed:", err);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <main class="page">

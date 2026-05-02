@@ -11,12 +11,17 @@ public_icons=public/icons
 
 mkdir -p "$out" "$public_icons"
 
-for size in 128 256 512 1024; do
+for size in 128 192 256 512 1024; do
   magick -background none -density 300 "$src" -resize "${size}x${size}" "${out}/icon-${size}.png"
   echo "wrote ${out}/icon-${size}.png"
 done
 
-# Public copies served by the web app (apple-touch-icon + favicon-32).
+# Public copies served by the web app:
+#   - 32px favicon (legacy / fallback)
+#   - 192 + 512 PNG icons referenced by the PWA manifest
+#   - apple-touch-icon (256px)
+cp "${out}/icon-192.png" "${public_icons}/icon-192.png"
 cp "${out}/icon-256.png" "${public_icons}/icon-256.png"
+cp "${out}/icon-512.png" "${public_icons}/icon-512.png"
 magick -background none -density 300 "$src" -resize 32x32 public/favicon-32.png
-echo "wrote ${public_icons}/icon-256.png and public/favicon-32.png"
+echo "wrote ${public_icons}/icon-{192,256,512}.png and public/favicon-32.png"
