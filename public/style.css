@@ -540,6 +540,14 @@ body.modal-open { overflow: hidden; }
   font-size: 13px;
   margin: 0 0 16px;
 }
+
+.form__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.form__actions .btn { margin: 0; }
 .back { margin-top: 20px; font-size: 13px; }
 
 /* Wide tables (recent searches, fillups, saved trips) horizontally

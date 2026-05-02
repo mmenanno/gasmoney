@@ -69,4 +69,35 @@ class GasBuddyFlareSolverrTest < ActiveSupport::TestCase
           post_data: "username=u")
     end
   end
+
+  test "ping returns version info on a healthy FlareSolverr instance" do
+    stub_request(:get, "http://flare.test/")
+      .to_return(
+        status: 200,
+        body: JSON.generate(msg: "FlareSolverr is ready!", version: "3.3.21"),
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    info = GasMoney::GasBuddy::FlareSolverr.new("http://flare.test").ping
+
+    assert_equal("3.3.21", info[:version])
+    assert_match(/FlareSolverr/, info[:message])
+  end
+
+  test "ping raises UpstreamFailure when the response doesn't look like FlareSolverr" do
+    stub_request(:get, "http://flare.test/")
+      .to_return(status: 200, body: JSON.generate(msg: "hello from somewhere else"))
+
+    assert_raises(GasMoney::GasBuddy::FlareSolverr::UpstreamFailure) do
+      GasMoney::GasBuddy::FlareSolverr.new("http://flare.test").ping
+    end
+  end
+
+  test "ping raises UpstreamFailure when the host is unreachable" do
+    stub_request(:get, "http://flare.test/").to_raise(Faraday::ConnectionFailed.new("connection refused"))
+
+    assert_raises(GasMoney::GasBuddy::FlareSolverr::UpstreamFailure) do
+      GasMoney::GasBuddy::FlareSolverr.new("http://flare.test").ping
+    end
+  end
 end

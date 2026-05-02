@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-02
+
+### Added
+
+- "Test connection" button next to the FlareSolverr URL field on `/sync`. Hits `GET /` on whatever URL is in the input field at the moment (so you can validate before saving) and reports the FlareSolverr version on success or a typed error on failure (`Misconfigured` / `Timeout` / `UpstreamFailure`). The status endpoint doesn't trigger a browser launch or a Cloudflare solve, so the test is fast and burns no FlareSolverr resources.
+
 ## [0.6.2] - 2026-05-02
 
 ### Security

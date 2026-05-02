@@ -54,6 +54,25 @@ module GasMoney
         )
       end
 
+      # Cheap connectivity check. FlareSolverr exposes a JSON status
+      # blob at GET /, including its version. Doesn't trigger a
+      # browser launch or a Cloudflare solve — just confirms the URL
+      # we have configured points at a real FlareSolverr instance.
+      def ping
+        response = connection.get("/")
+        body = parse_body(response.body)
+        msg = body["msg"].to_s
+        unless msg.start_with?("FlareSolverr")
+          raise UpstreamFailure, "Unexpected response from #{@endpoint}: #{msg.empty? ? body.inspect : msg}"
+        end
+
+        { version: body["version"], message: msg, user_agent: body["userAgent"] }
+      rescue Faraday::TimeoutError => e
+        raise Timeout, "FlareSolverr did not respond in time: #{e.message}"
+      rescue Faraday::ConnectionFailed => e
+        raise UpstreamFailure, "FlareSolverr unreachable: #{e.message}"
+      end
+
       private
 
       def post_to_solver(payload)

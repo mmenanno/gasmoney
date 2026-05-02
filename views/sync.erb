@@ -80,13 +80,18 @@
       Set this before the first sync.
     <% end %>
   </p>
-  <form action="/sync/flaresolverr" method="post" class="form">
+  <form action="/sync/flaresolverr" method="post" class="form" id="flaresolverr-form">
     <label class="field">
       <span class="field__label">URL</span>
       <input type="text" name="flaresolverr_url" placeholder="http://10.0.0.5:8191"
              value="<%= h(@setting.flaresolverr_url) %>">
     </label>
-    <button type="submit" class="btn btn--ghost">Save URL</button>
+    <div class="form__actions">
+      <button type="submit" class="btn btn--ghost">Save URL</button>
+      <button type="submit" formaction="/sync/flaresolverr/test" formmethod="post" class="btn btn--ghost">
+        Test connection
+      </button>
+    </div>
   </form>
 </section>
 
