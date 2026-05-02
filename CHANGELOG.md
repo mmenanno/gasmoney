@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-02
+
+### Changed
+
+- Bumped Puma to `~> 8.0` (lockfile lands on 8.0.1, was 6.6.1). All other gems were already at the latest version compatible with the existing pessimistic constraints; ran `bundle update --all` to refresh the full lockfile alongside the Puma jump. The only remaining outdated gem is `mustermann` 4.0.0, which is pinned to `~> 3` by Sinatra 4's gemspec — no first-party action available until a newer Sinatra release widens its constraint.
+
 ## [0.1.1] - 2026-05-02
 
 ### Added
