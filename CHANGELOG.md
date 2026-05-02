@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-02
+
+First stable release. No functional change versus 0.10.10 — the bump signals that the feature set has stabilised after the 0.10.x polish cycle. From here, semver applies normally (breaking changes go to 2.0.0, additions to 1.x.0, fixes to 1.0.x).
+
+### What's in 1.0
+
+- **Trip-cost calculator**: estimate any trip's gas cost from vehicle + date + km, picking surrounding fillups via one of four selection rules (`exact` / `between` / `after_latest` / `before_earliest`).
+- **Vehicle dashboard**: pinned-vehicle `$/km` tiles (latest fillup + 5-fillup average), with the per-vehicle ledger one click away.
+- **CSV import** of GasBuddy exports with row-level dedup so re-importing the same file is a no-op.
+- **GasBuddy auto-sync**: bundled headless Chromium drives the real login (Cloudflare's challenge solves naturally), captures cookies, and uses them for plain Faraday GraphQL calls. Daily scheduled run plus a manual button.
+- **Backfill mode**: walks the GasBuddy garage year-by-year for historical fillup imports, separate from the regular sync.
+- **Vehicle linking** with three states (linked / unlinked / ignored) and a side action for ignore so the dropdown stays focused on linking.
+- **Provenance glyphs** on the fillups ledger (`↻` synced from GasBuddy / `✎` added manually).
+- **Saved trips**: name a route once, pre-fill the form for any vehicle / date.
+- **PWA**: installable on mobile + desktop, offline shell, refresh banner when the running build is older than the deployed one.
+
 ## [0.10.10] - 2026-05-02
 
 ### Changed
