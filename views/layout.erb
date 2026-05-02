@@ -26,6 +26,7 @@
 
   <script src="/select.js" defer></script>
   <script src="/confirm.js" defer></script>
+  <script src="/nav.js" defer></script>
   <script>
     // Service worker registration. The worker only caches the static
     // app shell — see public/sw.js for scope details. Failures are
@@ -46,7 +47,13 @@
         <img src="/favicon.svg" alt="" class="brand__mark" width="28" height="28">
         <span class="brand__name">Gas Money</span>
       </a>
-      <nav class="nav">
+      <button type="button" class="nav-toggle" aria-label="Toggle navigation"
+              aria-expanded="false" aria-controls="primary-nav">
+        <span class="nav-toggle__line" aria-hidden="true"></span>
+        <span class="nav-toggle__line" aria-hidden="true"></span>
+        <span class="nav-toggle__line" aria-hidden="true"></span>
+      </button>
+      <nav class="nav" id="primary-nav">
         <a href="/vehicles" class="nav-link">Vehicles</a>
         <a href="/saved_trips" class="nav-link">Saved trips</a>
         <a href="/import" class="nav-link">Import logs</a>

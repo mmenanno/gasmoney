@@ -47,14 +47,24 @@ a:hover { color: var(--accent); }
 .page {
   max-width: 760px;
   margin: 0 auto;
-  padding: 56px 28px 96px;
+  /* env(safe-area-inset-top) honours the iOS notch when the PWA is
+     installed (viewport-fit=cover in the meta tag). max() keeps a
+     reasonable minimum on browsers that resolve the env var to 0. */
+  padding:
+    max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(96px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+@media (min-width: 721px) {
+  .page { padding: 56px 28px 96px; }
 }
 
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 40px;
+  position: relative;
 }
 
 .brand {
@@ -66,6 +76,7 @@ a:hover { color: var(--accent); }
   font-size: 28px;
   letter-spacing: -0.01em;
   font-variation-settings: "opsz" 80;
+  white-space: nowrap;
 }
 .brand__mark {
   display: block;
@@ -76,6 +87,106 @@ a:hover { color: var(--accent); }
 }
 .brand:hover { color: var(--ink); }
 .brand:hover .brand__mark { opacity: 0.92; }
+
+/* Burger toggle (mobile nav). Hidden on desktop; the .nav above renders
+   inline like a normal navbar at 721px+. */
+.nav-toggle {
+  display: none;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 100ms ease;
+  z-index: 60;
+}
+.nav-toggle:hover { border-color: var(--accent); }
+.nav-toggle__line {
+  position: absolute;
+  left: 8px;
+  width: 18px;
+  height: 1.5px;
+  background: var(--ink);
+  transition: transform 200ms ease, opacity 150ms ease, top 200ms ease;
+}
+.nav-toggle__line:nth-child(1) { top: 11px; }
+.nav-toggle__line:nth-child(2) { top: 17px; }
+.nav-toggle__line:nth-child(3) { top: 23px; }
+body.nav-open .nav-toggle__line:nth-child(1) {
+  top: 17px;
+  transform: rotate(45deg);
+}
+body.nav-open .nav-toggle__line:nth-child(2) { opacity: 0; }
+body.nav-open .nav-toggle__line:nth-child(3) {
+  top: 17px;
+  transform: rotate(-45deg);
+}
+
+@media (max-width: 720px) {
+  .brand { font-size: 22px; }
+  .brand__mark { width: 24px; height: 24px; }
+
+  .nav-toggle { display: block; }
+
+  /* The nav becomes a slide-in side panel anchored to the right edge
+     of the viewport. translateX(100%) keeps it offscreen until the
+     burger is clicked; nav.js toggles body.nav-open to slide it in. */
+  .nav {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: 280px;
+    max-width: 80vw;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--rule);
+    padding:
+      calc(72px + env(safe-area-inset-top)) 24px env(safe-area-inset-bottom);
+    transform: translateX(100%);
+    transition: transform 240ms cubic-bezier(0.32, 0.72, 0.24, 1);
+    z-index: 50;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0);
+  }
+  body.nav-open .nav {
+    transform: translateX(0);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Backdrop. body::before since adding a separate <div> would
+     complicate the markup; the body-level pseudo-element is fine for
+     a non-interactive scrim, and clicks on it bubble up to the doc-
+     level outside-click handler in nav.js. */
+  body.nav-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 40;
+    animation: nav-backdrop 200ms ease-out;
+  }
+  body.nav-open { overflow: hidden; }
+
+  @keyframes nav-backdrop {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .nav-link {
+    display: block;
+    padding: 14px 4px;
+    font-size: 15px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--rule);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .nav-link:hover { color: var(--accent); }
+}
 
 .nav-link {
   font-family: var(--mono);
@@ -431,6 +542,15 @@ body.modal-open { overflow: hidden; }
 }
 .back { margin-top: 20px; font-size: 13px; }
 
+/* Wide tables (recent searches, fillups, saved trips) horizontally
+   scroll on mobile so columns don't compress past readability. The
+   parent .history section is the scroll container. */
+.history { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 720px) {
+  .ledger { min-width: 480px; }
+}
+
 /* Recent searches ledger */
 .ledger {
   width: 100%;
@@ -555,4 +675,71 @@ body.modal-open { overflow: hidden; }
   color: var(--accent);
   border-color: var(--accent);
   background: rgba(124, 196, 184, 0.10);
+}
+
+/* Vehicle cards — replaces a 5-column ledger that didn't fit on
+   mobile. Each card is a self-contained block: rename row on top,
+   action row below, delete pinned to the corner. The accent left
+   border is a subtle pinned-state indicator. */
+.vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.vehicle-card {
+  position: relative;
+  background: var(--surface);
+  padding: 18px 20px 16px;
+  border-left: 2px solid var(--rule);
+  transition: border-color 150ms ease;
+}
+.vehicle-card--pinned { border-left-color: var(--accent); }
+
+.vehicle-card__rename {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.vehicle-card__rename .field {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+}
+.vehicle-card__rename input[type="text"] {
+  width: 100%;
+}
+.vehicle-card__rename .btn--ghost {
+  margin-left: 0;
+  align-self: flex-end;
+}
+
+.vehicle-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.vehicle-card__actions > * { margin: 0; }
+
+.vehicle-card__delete {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  margin: 0;
+}
+.vehicle-card__delete .btn-delete {
+  font-size: 22px;
+  line-height: 1;
+}
+
+@media (min-width: 721px) {
+  /* On desktop, two cards side-by-side reads better than a single
+     stack — vehicles is a low-density page and full-width cards feel
+     a bit empty. */
+  .vehicle-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
 }

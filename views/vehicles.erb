@@ -14,56 +14,45 @@
   </form>
 </section>
 
-<section class="history">
+<section>
   <h3 class="section-heading">Garage</h3>
   <% all = vehicles_pinned_first %>
   <% if all.empty? %>
     <p class="empty">No vehicles yet.</p>
   <% else %>
-    <table class="ledger">
-      <thead>
-        <tr>
-          <th>Vehicle</th>
-          <th>Fillups</th>
-          <th>Pinned</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% all.each do |v| %>
-          <tr>
-            <td>
-              <form action="/vehicles/<%= v.id %>/update" method="post" class="inline-form inline-form--rename">
-                <input type="text" name="display_name" value="<%= h(v.display_name) %>" maxlength="80" required>
-                <input type="hidden" name="pinned" value="<%= v.pinned ? '1' : '0' %>">
-                <button type="submit" class="btn btn--ghost" title="Save name">save</button>
-              </form>
-            </td>
-            <td>
-              <a href="/vehicles/<%= v.id %>/fillups" class="btn btn--ghost btn--ghost-sm">
-                <%= v.fillups.count %> fillups · manage →
-              </a>
-            </td>
-            <td>
-              <form action="/vehicles/<%= v.id %>/toggle_pin" method="post" class="inline-form">
-                <input type="hidden" name="return_to" value="/vehicles">
-                <button type="submit" class="pin-toggle <%= 'pin-toggle--on' if v.pinned %>" aria-label="Toggle pin">
-                  <%= v.pinned ? "★ pinned" : "☆ pin" %>
-                </button>
-              </form>
-            </td>
-            <td class="num">
-              <form action="/vehicles/<%= v.id %>/delete" method="post" class="inline-form"
-                    data-confirm='Delete <strong><%= h(v.display_name) %></strong>? Its fillups and search history will be deleted too.'
-                    data-confirm-action="Delete vehicle"
-                    data-confirm-tone="danger">
-                <button type="submit" class="btn-delete" aria-label="Delete">×</button>
-              </form>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+    <div class="vehicle-list">
+      <% all.each do |v| %>
+        <article class="vehicle-card <%= 'vehicle-card--pinned' if v.pinned %>">
+          <form action="/vehicles/<%= v.id %>/delete" method="post" class="vehicle-card__delete inline-form"
+                data-confirm='Delete <strong><%= h(v.display_name) %></strong>? Its fillups and search history will be deleted too.'
+                data-confirm-action="Delete vehicle"
+                data-confirm-tone="danger">
+            <button type="submit" class="btn-delete" aria-label="Delete">×</button>
+          </form>
+
+          <form action="/vehicles/<%= v.id %>/update" method="post" class="vehicle-card__rename">
+            <label class="field">
+              <span class="field__label">Display name</span>
+              <input type="text" name="display_name" value="<%= h(v.display_name) %>" maxlength="80" required>
+            </label>
+            <input type="hidden" name="pinned" value="<%= v.pinned ? '1' : '0' %>">
+            <button type="submit" class="btn btn--ghost" title="Save name">save</button>
+          </form>
+
+          <div class="vehicle-card__actions">
+            <a href="/vehicles/<%= v.id %>/fillups" class="btn btn--ghost btn--ghost-sm">
+              <%= v.fillups.count %> fillups · manage →
+            </a>
+            <form action="/vehicles/<%= v.id %>/toggle_pin" method="post" class="inline-form">
+              <input type="hidden" name="return_to" value="/vehicles">
+              <button type="submit" class="pin-toggle <%= 'pin-toggle--on' if v.pinned %>" aria-label="Toggle pin">
+                <%= v.pinned ? "★ pinned" : "☆ pin" %>
+              </button>
+            </form>
+          </div>
+        </article>
+      <% end %>
+    </div>
   <% end %>
   <p class="back"><a href="/" class="nav-link">← back to dashboard</a></p>
 </section>

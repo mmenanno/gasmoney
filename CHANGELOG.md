@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-02
+
+### Added
+
+- Mobile-first navigation. Below 720 px the topbar collapses to a wordmark + burger button; the nav links slide in from the right as a 280 px panel with a backdrop scrim. `public/nav.js` toggles the panel on burger click, closes on outside-click / Escape / nav-link click, and resets to the desktop layout on resize. Animated burger lines fold into an X when open.
+- Vehicles page replaced its desktop-only ledger table with a card-based layout (`.vehicle-card`). Each card stacks the rename input + save button, the "X fillups · manage →" link + pin toggle, and a corner delete (×). Pinned vehicles get a teal left border so the dashboard's at-a-glance set is identifiable at a glance here too. Two cards per row on desktop (≥721 px); single-column stack on mobile.
+- iOS PWA safe-area handling. The viewport meta gained `viewport-fit=cover`; the page wrapper, mobile nav panel, and topbar use `env(safe-area-inset-*)` so installed-app content clears the notch and home indicator without overlap.
+
+### Changed
+
+- Wide ledger tables (recent searches, fillups, saved trips) horizontally scroll inside their `.history` container on mobile rather than compress columns past readability. `.ledger { min-width: 480px }` keeps the column widths legible.
+- Service-worker cache bumped to `gasmoney-shell-v2`; the precache list now includes `/nav.js` so installed PWAs pick up the navigation script offline-first.
+- `.brand__name` is `white-space: nowrap` and shrinks from 28 px → 22 px below 720 px so "Gas Money" no longer wraps.
+
 ## [0.4.0] - 2026-05-02
 
 ### Removed
