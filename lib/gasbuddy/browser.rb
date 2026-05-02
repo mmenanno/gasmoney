@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "ferrum"
+require "fileutils"
 require "json"
+require "tmpdir"
 require "uri"
 
 module GasMoney
@@ -57,30 +59,34 @@ module GasMoney
       #     final_url: String }
       def login(username:, password:)
         browser_path = locate_browser
+        data_dir = chromium_data_dir
 
         log(:info, "Launching headless Chromium (#{browser_path})")
         browser = Ferrum::Browser.new(
           headless: true,
           browser_path: browser_path,
-          process_timeout: DEFAULT_TIMEOUT,
+          process_timeout: 30,
           timeout: LOGIN_NAV_TIMEOUT,
           window_size: [1280, 800],
-          # Some hosting environments (Docker on Unraid in particular)
-          # don't permit a sandboxed Chromium child. The risk is
-          # smaller for us because we only ever load gasbuddy.com URLs
-          # we control the credentials for.
-          browser_options: { "no-sandbox" => nil, "disable-dev-shm-usage" => nil },
+          browser_options: chromium_flags(data_dir),
         )
 
         run_login(browser, username, password)
+      rescue Ferrum::DeadBrowserError, Ferrum::ProcessTimeoutError => e
+        # Surface the most-likely cause when Chromium silently dies:
+        # missing shared libs, restricted seccomp profile, /tmp full,
+        # or insufficient /dev/shm. Operator can check the container's
+        # stderr for chromium's own diagnostics.
+        raise LaunchFailed, "Chromium exited before Ferrum could connect (#{e.class}: #{e.message}). " \
+                            "Check the container's stderr for the actual chromium error."
       ensure
         begin
           browser&.quit
         rescue StandardError
-          # Best-effort. A child process that's already gone or never
-          # got a chance to start is fine to ignore here — we're
-          # shutting down anyway.
+          # Best-effort. A child process that's already gone is fine to
+          # ignore here — we're shutting down anyway.
         end
+        cleanup_data_dir(data_dir)
       end
 
       private
@@ -129,6 +135,43 @@ module GasMoney
 
         raise LaunchFailed,
           "No Chromium binary found. Set CHROMIUM_PATH or install /usr/bin/chromium."
+      end
+
+      # Container-friendly flag set. Each flag has a specific reason:
+      #   no-sandbox: container has no SUID-helper for the sandbox.
+      #   disable-dev-shm-usage: Docker's default /dev/shm is 64MB,
+      #     which Chromium will exhaust loading non-trivial pages.
+      #   disable-gpu / disable-software-rasterizer: no GPU in the
+      #     container; the software rasterizer eats memory.
+      #   disable-extensions / no-first-run: avoid one-time setup
+      #     phases that can stall first launch.
+      #   mute-audio: we never want sound.
+      #   user-data-dir: explicit writable location so Chromium isn't
+      #     racing to create one under /tmp on parallel runs.
+      def chromium_flags(data_dir)
+        {
+          "no-sandbox" => nil,
+          "disable-dev-shm-usage" => nil,
+          "disable-gpu" => nil,
+          "disable-software-rasterizer" => nil,
+          "disable-extensions" => nil,
+          "no-first-run" => nil,
+          "no-default-browser-check" => nil,
+          "mute-audio" => nil,
+          "user-data-dir" => data_dir,
+        }
+      end
+
+      def chromium_data_dir
+        path = File.join(Dir.tmpdir, "gasmoney-chromium-#{Process.pid}-#{rand(1_000_000)}")
+        FileUtils.mkdir_p(path)
+        path
+      end
+
+      def cleanup_data_dir(path)
+        return if path.nil? || !Dir.exist?(path)
+
+        FileUtils.rm_rf(path)
       end
 
       def wait_for_form(page)

@@ -20,9 +20,34 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       # Cloudflare's JS challenge solves naturally and the React form
       # submits its JSON XHR with the right CSRF + Content-Type. Bundled
       # rather than pulled at runtime so the image is fully self-contained.
+      #
+      # The accompanying lib* / fonts-* packages aren't all transitive
+      # deps of the chromium package under --no-install-recommends. The
+      # binary will install fine without them but exits ~immediately on
+      # first launch if any are missing — symptom is a Ferrum
+      # DeadBrowserError with no useful diagnostics.
       chromium \
       fonts-liberation \
-      libnss3
+      libasound2 \
+      libatk1.0-0 \
+      libatk-bridge2.0-0 \
+      libcups2 \
+      libdrm2 \
+      libgbm1 \
+      libgtk-3-0 \
+      libnspr4 \
+      libnss3 \
+      libpango-1.0-0 \
+      libx11-xcb1 \
+      libxcomposite1 \
+      libxdamage1 \
+      libxfixes3 \
+      libxkbcommon0 \
+      libxrandr2 \
+      libxshmfence1 \
+      libxss1 \
+      libxtst6 \
+      xdg-utils
 
 ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/usr/local/bundle \

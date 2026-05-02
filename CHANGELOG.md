@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-02
+
+### Fixed
+
+- `Ferrum::DeadBrowserError` ("Browser is dead or given window is closed") on first sync after the 0.8.0 upgrade. The chromium package on debian:slim doesn't pull all of its runtime shared libs under `--no-install-recommends`; the binary installs fine but exits ~immediately on launch with no actionable diagnostic. The Dockerfile now explicitly installs `libasound2`, `libatk1.0-0`, `libatk-bridge2.0-0`, `libcups2`, `libdrm2`, `libgbm1`, `libgtk-3-0`, `libnspr4`, `libpango-1.0-0`, `libx11-xcb1`, `libxcomposite1`, `libxdamage1`, `libxfixes3`, `libxkbcommon0`, `libxrandr2`, `libxshmfence1`, `libxss1`, `libxtst6`, and `xdg-utils` alongside chromium itself.
+
+### Changed
+
+- Headless Chromium gets a more aggressive container-friendly flag set: `--disable-gpu`, `--disable-software-rasterizer`, `--disable-extensions`, `--no-first-run`, `--no-default-browser-check`, `--mute-audio`. Each is annotated in `lib/gasbuddy/browser.rb` with the specific reason.
+- Each browser launch now creates an explicit `--user-data-dir` under `Dir.tmpdir` and removes it after the run, so concurrent or back-to-back syncs don't race on Chromium's default profile path.
+- `Ferrum::DeadBrowserError` and `Ferrum::ProcessTimeoutError` are now caught at the launch site and re-raised as `Browser::LaunchFailed` with a message pointing the operator at the container's stderr for the chromium-side diagnostic.
+
 ## [0.8.0] - 2026-05-02
 
 ### Changed
