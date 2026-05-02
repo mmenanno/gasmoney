@@ -1,23 +1,45 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gas Money">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1a2329"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#1a2329"/>
       <stop offset="100%" stop-color="#0c1115"/>
     </linearGradient>
-    <linearGradient id="glow" cx="0.18" cy="0" r="0.9">
-      <stop offset="0%" stop-color="#7CC4B8" stop-opacity="0.32"/>
-      <stop offset="55%" stop-color="#7CC4B8" stop-opacity="0"/>
+    <radialGradient id="glow" cx="22%" cy="14%" r="68%">
+      <stop offset="0%"  stop-color="#7CC4B8" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#7CC4B8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="drop" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%"   stop-color="#9CD8CC"/>
+      <stop offset="100%" stop-color="#5DA89C"/>
     </linearGradient>
+    <!-- Mask: white = drop visible, black = drop cut away. The "$" glyph
+         in the centre becomes a hole that shows the dark bg through, so
+         the mark reads as "fuel drop with a money sign carved out".
+         Browsers and librsvg disagree on dominant-baseline alignment,
+         so we use the default alphabetic baseline and pick `y` to put
+         the glyph's visual centre at the bulb's centre (~y=720). For
+         Arial Black at font-size 340, the glyph runs ~0.78em above the
+         baseline; baseline at y=850 puts the visual centre at ~720. -->
+    <mask id="cutout">
+      <rect width="1024" height="1024" fill="white"/>
+      <text x="512" y="850"
+            font-family="Arial Black, Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-weight="900"
+            font-size="340"
+            text-anchor="middle"
+            fill="black">$</text>
+    </mask>
   </defs>
 
+  <!-- Dark surface, subtle teal glow upper-left, matching the app's
+       bg/surface gradient and accent halo. -->
   <rect width="1024" height="1024" rx="200" ry="200" fill="url(#bg)"/>
   <rect width="1024" height="1024" rx="200" ry="200" fill="url(#glow)"/>
 
-  <!-- Three horizontal bars: a fuel-tank gauge dropping from full to empty.
-       Decreasing width, decreasing opacity. Reads as readout/data UI. -->
-  <g fill="#7CC4B8">
-    <rect x="232" y="356" width="560" height="56" rx="6"/>
-    <rect x="232" y="476" width="408" height="56" rx="6" opacity="0.78"/>
-    <rect x="232" y="596" width="248" height="56" rx="6" opacity="0.52"/>
-  </g>
+  <!-- Fuel droplet. Two quadratic curves form the pointed top half;
+       a 228-radius semicircular arc forms the bulbous bottom. The "$"
+       cutout sits in the centre of the bulb. -->
+  <path d="M 512 175 Q 740 480 740 612 A 228 228 0 1 1 284 612 Q 284 480 512 175 Z"
+        fill="url(#drop)"
+        mask="url(#cutout)"/>
 </svg>

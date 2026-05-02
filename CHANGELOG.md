@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-05-02
+
+### Changed
+
+- Logo redesign. The previous mark (three teal bars descending) was meant to read as a fuel gauge dropping but at a glance could have been a wifi signal, a sound visualiser, or any descending-quantity chart. New mark is a fuel droplet silhouette with a `$` carved out as negative space — two universal symbols composed into one mark, both halves of the brand stated explicitly. Drop carries a subtle top-to-bottom highlight gradient so it reads as a real droplet rather than a flat shape; the dark background keeps the upper-left teal glow halo for atmosphere.
+- `bin/build-icons` regenerates every PNG export from the new master `app/assets/icon.svg` (favicon-32, 192/256/512 PWA icons, plus the 1024 web exports).
+
 ## [0.10.6] - 2026-05-02
 
 ### Removed
