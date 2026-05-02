@@ -16,16 +16,15 @@
          in the centre becomes a hole that shows the dark bg through, so
          the mark reads as "fuel drop with a money sign carved out".
          Browsers and librsvg disagree on dominant-baseline alignment,
-         so we use the default alphabetic baseline and pick `y` to put
-         the glyph's visual centre at the bulb's centre (~y=720). For
-         Arial Black at font-size 340, the glyph runs ~0.78em above the
-         baseline; baseline at y=850 puts the visual centre at ~720. -->
+         so we use the default alphabetic baseline and pick `y` empirically.
+         Sized large enough that the cutout dominates the bulb — the
+         descender naturally tucks behind the drop's lower curve. -->
     <mask id="cutout">
       <rect width="1024" height="1024" fill="white"/>
-      <text x="512" y="855"
+      <text x="512" y="920"
             font-family="Arial Black, Helvetica Neue, Helvetica, Arial, sans-serif"
             font-weight="900"
-            font-size="460"
+            font-size="640"
             text-anchor="middle"
             fill="black">$</text>
     </mask>

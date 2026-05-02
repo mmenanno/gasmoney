@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.10] - 2026-05-02
+
+### Changed
+
+- Topbar brand mark bumped from 28×28 → 36×36 CSS pixels (mobile: 24 → 30). At 28px the `$` cutout was small enough that anti-aliasing smeared the curve detail; the bigger surface gives the renderer enough pixels for a sharp `$` glyph.
+- Logo `$` cutout size dialed in at `font-size=640` (master, in 1024 viewBox) and the favicon is now a verbatim copy of the master SVG instead of a hand-simplified 256-viewBox variant. The simplified favicon was losing the gradient-on-drop detail and rendering blurrier than the master would have at the same size; using the master directly gives the browser more vector data to anti-alias from.
+
 ## [0.10.9] - 2026-05-02
 
 ### Changed

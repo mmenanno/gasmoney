@@ -80,9 +80,9 @@ a:hover { color: var(--accent); }
 }
 .brand__mark {
   display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
   flex: 0 0 auto;
 }
 .brand:hover { color: var(--ink); }
@@ -127,7 +127,7 @@ body.nav-open .nav-toggle__line:nth-child(3) {
 
 @media (max-width: 720px) {
   .brand { font-size: 22px; }
-  .brand__mark { width: 24px; height: 24px; }
+  .brand__mark { width: 30px; height: 30px; }
 
   .nav-toggle { display: block; }
 
