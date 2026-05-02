@@ -631,7 +631,6 @@ body.modal-open { overflow: hidden; }
   margin-top: 6px;
 }
 .form__actions .btn { margin: 0; }
-.back { margin-top: 20px; font-size: 13px; }
 
 /* Wide tables (recent searches, fillups, saved trips) horizontally
    scroll on mobile so columns don't compress past readability. The
@@ -748,25 +747,6 @@ body.modal-open { overflow: hidden; }
   white-space: nowrap;
 }
 
-.inline-form--rename {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-.inline-form--rename input[type="text"] {
-  font-family: var(--mono);
-  font-size: 14px;
-  background: var(--bg);
-  color: var(--ink);
-  border: 1px solid var(--rule);
-  padding: 6px 8px;
-  outline: none;
-  width: 220px;
-  max-width: 100%;
-  transition: border-color 100ms ease;
-}
-.inline-form--rename input[type="text"]:focus { border-color: var(--accent); }
-
 /* Pin toggle */
 .pin-toggle {
   font-family: var(--mono);
@@ -801,13 +781,13 @@ body.modal-open { overflow: hidden; }
   flex-wrap: wrap;
 }
 .sync-status__head .section-heading { margin: 0; }
-.sync-status__head .btn { margin-top: 0; padding: 9px 16px; }
+.sync-status__head .btn { margin: 0; padding: 9px 16px; }
+.sync-status__head .btn--ghost { font-size: 13px; }
 .sync-status__actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.sync-status__actions .btn--ghost { margin-left: 0; padding: 9px 16px; font-size: 13px; }
 
 .sync-status__readouts {
   display: grid;
@@ -860,9 +840,11 @@ body.modal-open { overflow: hidden; }
    actions), no chevron. The "change" link sits next to it for
    re-edits — same visual weight as "ignore" so neither competes
    with primary actions on rows that aren't yet linked. */
-/* The HTML `hidden` attribute is supposed to set display:none, but
-   `.inline-form { display: inline-flex }` and similar specific
-   rules override it. Make `[hidden]` win regardless of element. */
+/* The HTML `hidden` attribute should set display:none, but our
+   form/component rules use display:inline-flex / flex / grid which
+   beat the user-agent default by specificity. Force [hidden] to
+   win regardless of element so the link-edit toggle (which flips
+   `hidden` on the dropdown form when a row is locked-in) works. */
 [hidden] { display: none !important; }
 
 .link-summary {
@@ -1096,14 +1078,14 @@ body.modal-open { overflow: hidden; }
   border-radius: 50%;
   background: var(--accent);
   flex: 0 0 auto;
-  animation: run-pulse 1.4s ease-in-out infinite;
+  animation: run-current-pulse 1.4s ease-in-out infinite;
 }
 .run__current-msg {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@keyframes run-pulse {
+@keyframes run-current-pulse {
   0%, 100% { opacity: 0.35; transform: scale(0.85); }
   50%      { opacity: 1;    transform: scale(1.1);  }
 }

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-05-02
+
+### Fixed
+
+- The "now happening" pulse dot on running syncs was unintentionally also driving the colored vertical run-status rail. Two `@keyframes` blocks both named `run-pulse` were defined back-to-back; the second silently overrode the first, so `.run__rail` got the scale-transform animation meant for the small dot. Renamed the live-pulse keyframes to `run-current-pulse` so each animation has its own rule and the rail goes back to its intended opacity-only pulse.
+
+### Removed
+
+- Dead CSS: `.inline-form--rename` (~18 lines) and `.back` (1 line). Both were leftovers from earlier views that no template references — `.inline-form--rename` from a vehicle-rename layout that never shipped, `.back` from the "← back to dashboard" links removed in 0.9.1.
+
+### Changed
+
+- Consolidated duplicated `.sync-status__head .btn { padding: 9px 16px; margin: 0 }` and `.sync-status__actions .btn--ghost { padding: 9px 16px; … }` into a single `.sync-status__head .btn` rule plus a small font-size-only override for the ghost variant. The duplicated padding values were a rebase artefact from when Backfill landed next to Sync Now.
+- `[hidden] !important` rule now carries a comment explaining what it overrides (`.inline-form { display: inline-flex }` etc.) and why the `link-edit` toggle depends on it.
+
 ## [0.10.3] - 2026-05-02
 
 ### Changed
