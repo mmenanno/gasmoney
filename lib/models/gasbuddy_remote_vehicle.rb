@@ -16,11 +16,5 @@ module GasMoney
     scope :active,  -> { where(ignored: false) }
     scope :ignored, -> { where(ignored: true) }
     scope :ordered, -> { order(:display_name) }
-
-    def linked_vehicle
-      Vehicle.find_by(gasbuddy_uuid: uuid)
-    end
-
-    def linked? = !linked_vehicle.nil?
   end
 end

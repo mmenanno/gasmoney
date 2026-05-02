@@ -148,7 +148,7 @@ module GasMoney
       end
 
       def ensure_authenticated!
-        refresh_cookies! if !authenticated? || @setting.cookies_json.to_s.empty?
+        refresh_cookies! unless authenticated?
       end
 
       def connection

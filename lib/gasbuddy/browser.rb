@@ -230,15 +230,19 @@ module GasMoney
       # we're stuck on Cloudflare's challenge, a rate-limit page,
       # or a real login form whose selectors no longer match.
       def log_page_state(page, label)
-        url = safe_eval(page) { page.url.to_s }
-        title = safe_eval(page) { page.title.to_s }
-        body = safe_eval(page) { page.evaluate("document.body && document.body.innerText || ''").to_s }
+        url = capture { page.url.to_s }
+        title = capture { page.title.to_s }
+        body = capture { page.evaluate("document.body && document.body.innerText || ''").to_s }
         excerpt = body.gsub(/\s+/, " ").strip[0, 400]
         log(:info, "#{label}: url=#{url.inspect} title=#{title.inspect}")
         log(:info, "#{label}: body=#{excerpt.inspect}")
       end
 
-      def safe_eval(_page)
+      # Yields to the block and returns its value, or a sentinel string
+      # if anything raises. Used for diagnostic capture where we'd rather
+      # log "<unavailable>" than crash the whole login flow on a flaky
+      # CDP call.
+      def capture
         yield
       rescue Ferrum::Error, StandardError => e
         "<unavailable: #{e.class.name.split("::").last}>"

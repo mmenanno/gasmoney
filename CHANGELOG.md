@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.8] - 2026-05-02
+
+### Changed
+
+- `Browser#safe_eval` renamed to `Browser#capture` and stripped of its unused `_page` parameter. The old name implied "safe" in some security/sandboxing sense but the method just yields-and-rescues; the new name reflects what it actually does (diagnostic capture).
+
+### Removed
+
+- Redundant `|| @setting.cookies_json.to_s.empty?` clause in `Client#ensure_authenticated!`. `parsed_cookies.any?` already returns `false` when `cookies_json` is empty (see the `return [] if @setting.cookies_json.to_s.empty?` guard inside `parsed_cookies`), so the second check was a no-op.
+- Dead methods on `GasbuddyRemoteVehicle`: `#linked_vehicle` and `#linked?`. Never called — views look up the link in-memory against a preloaded `@local_vehicles` collection (avoids N+1), and no other code path used them.
+
 ## [0.10.7] - 2026-05-02
 
 ### Changed
