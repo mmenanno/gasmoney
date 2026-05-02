@@ -9,7 +9,6 @@ class GasBuddySyncTest < ActiveSupport::TestCase
     @setting.update!(
       username: "halorrr",
       password: "secret",
-      flaresolverr_url: "http://flare.test",
       cookies_json: [{ name: "_gb", value: "abc", domain: ".gasbuddy.com" }].to_json,
       user_agent: "Mozilla/5.0 (test)",
       csrf_token: "csrf-1",

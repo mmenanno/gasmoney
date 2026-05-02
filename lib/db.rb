@@ -99,7 +99,6 @@ module GasMoney
         create_table(:gasbuddy_settings, if_not_exists: true) do |t|
           t.string(:username)         # encrypted
           t.string(:password)         # encrypted
-          t.string(:flaresolverr_url) # plain (UI-configured runtime URL)
           t.text(:cookies_json)       # encrypted (Faraday cookie jar dump)
           t.string(:user_agent)
           t.string(:csrf_token)
@@ -191,6 +190,11 @@ module GasMoney
       [:partial_fill, :fuel_type, :location, :city, :notes].each do |col|
         conn.remove_column(:fillups, col) if conn.column_exists?(:fillups, col)
       end
+
+      # Drop the dormant flaresolverr_url column. Vestigial since the
+      # 0.8.0 switch to bundled Chromium; kept until now so upgraders
+      # didn't hit a destructive migration mid-release.
+      conn.remove_column(:gasbuddy_settings, :flaresolverr_url) if conn.column_exists?(:gasbuddy_settings, :flaresolverr_url)
 
       unless conn.table_exists?(:gasbuddy_remote_vehicles)
         conn.create_table(:gasbuddy_remote_vehicles) do |t|

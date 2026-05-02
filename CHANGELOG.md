@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-05-02
+
+### Removed
+
+- Final FlareSolverr remnants. The 0.8.0 migration kept the `gasbuddy_settings.flaresolverr_url` column to avoid a destructive change on upgrade; five releases later it's safe to drop. `migrate!` now removes the column on first boot of this version. Also drops the `FLARESOLVERR_URL` placeholder from `.env.example` (no code reads it) and the `flaresolverr_url` attribute setter from the sync-test setup (was setting a value that nothing exercised).
+
 ## [0.10.4] - 2026-05-02
 
 ### Fixed
