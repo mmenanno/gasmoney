@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-05-02
+
+### Added
+
+- "Clear log" button on the **Sync activity** card. Wipes every finished sync run and its log entries via the existing `dependent: :destroy` cascade. Live runs (status `running`) are preserved so the worker doesn't try to update a row that vanished mid-run. Confirmed via the project's standard danger-confirm dialog.
+
 ## [0.8.4] - 2026-05-02
 
 ### Fixed

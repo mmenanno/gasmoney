@@ -438,5 +438,15 @@ module GasMoney
       set_flash(:success, "Sync started.")
       redirect "/sync"
     end
+
+    post "/sync/runs/clear" do
+      # Clears the entire sync activity ledger, but only the rows
+      # that have already finished. A live sync (running status) is
+      # left in place so its writer doesn't try to update a row that
+      # vanished mid-run.
+      destroyed = SyncRun.where.not(status: "running").destroy_all.size
+      set_flash(:success, "Cleared #{destroyed} sync #{destroyed == 1 ? "run" : "runs"}.")
+      redirect "/sync"
+    end
   end
 end

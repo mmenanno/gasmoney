@@ -107,7 +107,17 @@
 </section>
 
 <section class="form-section sync-runs" data-sync-runs>
-  <h3 class="section-heading">Sync activity</h3>
+  <div class="sync-status__head">
+    <h3 class="section-heading">Sync activity</h3>
+    <% if @recent_runs.any? { |r| !r.running? } %>
+      <form action="/sync/runs/clear" method="post" class="inline-form"
+            data-confirm="Clear all finished sync runs and their log entries? Running syncs will be kept."
+            data-confirm-action="Clear log"
+            data-confirm-tone="danger">
+        <button type="submit" class="btn btn--ghost btn--ghost-sm">Clear log</button>
+      </form>
+    <% end %>
+  </div>
   <% if @recent_runs.empty? %>
     <p class="empty">No sync runs yet.</p>
   <% else %>
