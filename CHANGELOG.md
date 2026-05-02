@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-05-02
+
+### Changed
+
+- Sync activity card now surfaces live progress for running runs. Two complementary changes:
+  - A "now happening" line above the counters shows the latest log message with a pulsing teal dot. Backfill writes per-year entries (`2025: 14 entries`, `2024: 0 entries`, …) which now stream into this line as they happen — no more blind waiting.
+  - The log-entries `<details>` auto-expands while a run is in progress, so the full activity feed is visible without an extra click. The polling JS keeps the latest message in the live line synced with whatever the server has logged most recently.
+
 ## [0.10.0] - 2026-05-02
 
 ### Added

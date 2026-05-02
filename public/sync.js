@@ -50,13 +50,21 @@
     if (!container || !data.log) return;
 
     const existing = container.querySelectorAll(".log-entry").length;
-    if (data.log.length === existing) return;
-
-    // Append only the new entries — the order is stable.
-    for (let i = existing; i < data.log.length; i++) {
-      container.appendChild(renderLogEntry(data.log[i]));
+    if (data.log.length !== existing) {
+      // Append only the new entries — the order is stable.
+      for (let i = existing; i < data.log.length; i++) {
+        container.appendChild(renderLogEntry(data.log[i]));
+      }
+      if (counter) counter.textContent = String(data.log.length);
     }
-    if (counter) counter.textContent = String(data.log.length);
+
+    // Update the "now happening" line at the top of the run card so
+    // backfill progress is visible without expanding the log.
+    const currentMsg = el.querySelector("[data-run-current-msg]");
+    if (currentMsg && data.log.length > 0) {
+      const last = data.log[data.log.length - 1];
+      if (last && last.message) currentMsg.textContent = last.message;
+    }
   }
 
   function renderLogEntry(entry) {

@@ -219,7 +219,13 @@
             <% if run.error_message.to_s != "" %>
               <p class="run__error" data-run-error><%= h(run.error_message) %></p>
             <% end %>
-            <details class="run__log">
+            <% if run.running? %>
+              <p class="run__current" data-run-current>
+                <span class="run__current-pulse" aria-hidden="true"></span>
+                <span class="run__current-msg" data-run-current-msg><%= h(run.sync_log_entries.last&.message || "Starting…") %></span>
+              </p>
+            <% end %>
+            <details class="run__log" <%= 'open' if run.running? %>>
               <summary><span data-log-count><%= run.sync_log_entries.size %></span> log entries</summary>
               <ol class="log-entries" data-log-entries>
                 <% run.sync_log_entries.each do |entry| %>

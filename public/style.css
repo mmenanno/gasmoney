@@ -1075,6 +1075,37 @@ body.modal-open { overflow: hidden; }
   font-family: var(--mono);
 }
 
+/* Live "now happening" line shown only on running syncs. The pulse
+   dot animates so it reads as alive even when the message text is
+   stable for a few seconds (e.g., during a slow Cloudflare solve
+   or a year with many entries). */
+.run__current {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+.run__current-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+  animation: run-pulse 1.4s ease-in-out infinite;
+}
+.run__current-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes run-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.1);  }
+}
+
 .run__log {
   margin-top: 10px;
   font-family: var(--mono);
