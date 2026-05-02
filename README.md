@@ -6,6 +6,20 @@ A self-hosted, single-screen calculator that estimates the gas cost of any trip 
 [![version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmmenanno%2Fgasmoney%2Fmain%2FVERSION&search=.%2B&label=version&prefix=v)](./VERSION)
 [![ruby](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmmenanno%2Fgasmoney%2Fmain%2F.ruby-version&search=.%2B&label=ruby&color=CC342D)](./.ruby-version)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+![maintenance: reactive](https://img.shields.io/badge/maintenance-reactive-blue)
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Dashboard with two vehicle cards showing $/km readouts and a trip-cost estimator form below" src="./.github/assets/screenshots/dashboard.png" /></td>
+    <td width="50%"><img alt="Sync page showing GasBuddy account, Vehicle linking with locked-in summaries and an ignored row, and Sync activity ledger with OK and partial runs" src="./.github/assets/screenshots/sync.png" /></td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Vehicles page: Add a vehicle form on top, Garage section with two pinned vehicle cards" src="./.github/assets/screenshots/vehicles.png" /></td>
+    <td width="50%"><img alt="Per-vehicle fillups page with manual entry form on top and the existing-fillups ledger below, each row carrying a provenance glyph" src="./.github/assets/screenshots/fillups.png" /></td>
+  </tr>
+</table>
 
 ## What it does
 
