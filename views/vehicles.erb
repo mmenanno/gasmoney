@@ -24,9 +24,8 @@
       <thead>
         <tr>
           <th>Vehicle</th>
-          <th class="num">Fillups</th>
+          <th>Fillups</th>
           <th>Pinned</th>
-          <th></th>
           <th></th>
         </tr>
       </thead>
@@ -40,7 +39,11 @@
                 <button type="submit" class="btn btn--ghost" title="Save name">save</button>
               </form>
             </td>
-            <td class="num"><a href="/vehicles/<%= v.id %>/fillups" class="link-soft"><%= v.fillups.count %></a></td>
+            <td>
+              <a href="/vehicles/<%= v.id %>/fillups" class="btn btn--ghost btn--ghost-sm">
+                <%= v.fillups.count %> fillups · manage →
+              </a>
+            </td>
             <td>
               <form action="/vehicles/<%= v.id %>/toggle_pin" method="post" class="inline-form">
                 <input type="hidden" name="return_to" value="/vehicles">
@@ -49,7 +52,6 @@
                 </button>
               </form>
             </td>
-            <td></td>
             <td class="num">
               <form action="/vehicles/<%= v.id %>/delete" method="post" class="inline-form"
                     data-confirm='Delete <strong><%= h(v.display_name) %></strong>? Its fillups and search history will be deleted too.'

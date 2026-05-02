@@ -503,10 +503,19 @@ body.modal-open { overflow: hidden; }
   font-size: 12px;
   margin-left: 6px;
   text-transform: lowercase;
+  text-decoration: none;
+  display: inline-block;
 }
 .btn--ghost:hover {
   color: var(--accent);
   border-color: var(--accent);
+}
+.btn--ghost-sm {
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin-left: 0;
+  white-space: nowrap;
 }
 
 .inline-form--rename {

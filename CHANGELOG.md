@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-02
+
+### Changed
+
+- `/vehicles` now exposes a `<count> fillups · manage →` ghost button per row that links to the per-vehicle fillup page. Previously the count was a quiet text link inside the "Fillups" column — discoverable only by hovering. Removes the empty spacer column the table inherited from an earlier layout.
+
 ## [0.2.0] - 2026-05-02
 
 ### Added
