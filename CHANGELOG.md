@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-05-02
+
+### Changed
+
+- Logo `$` cutout is bigger so the mark reads clearly at small sizes (28px topbar, 32px favicon). Master SVG bumps the `$` font-size from 340 → 460; the cutout now fills most of the drop's bulb and a slice of the upper teardrop, instead of sitting as a small mark in the lower bulb. Favicon mirrored at proportional scale (11 → 14.5).
+
 ## [0.10.8] - 2026-05-02
 
 ### Changed
