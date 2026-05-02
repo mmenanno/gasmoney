@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-05-02
+
+### Fixed
+
+- Per-vehicle sync hit `Unexpected GasBuddy response 400` for every linked vehicle. Two stacked issues:
+  - Cloudflare's WAF on `www.gasbuddy.com` rejects `/graphql` POSTs without an `Origin` + `Referer` header pair pointing at the same origin, returning a bare `Bad Request` 400 that masked the real problem. Browser-issued requests carry these by default; our Faraday client did not. Added them.
+  - The actual GraphQL schema is `myVehicle(guid: ID!)`, not the speculative `vehicleFuelLogs(vehicleId: String!)` the original implementation guessed at. Discovered the real shape by reading `window.__APOLLO_STATE__` from a logged-in vehicle page and seeing the cached `myVehicle({"guid": ...}) { fuelLogs(limit:) { results: [FuelLog] } }` keys. Re-wrote the query to match, dropped the obsolete two-step list-then-detail dance (one query returns everything we need), and fixed the variable type to `ID!`.
+- Client now surfaces a 400-class response body in the error message instead of the bare `Unexpected GasBuddy response 400`. The original error was indistinguishable from a transport failure; without the body the schema mismatch wasn't diagnosable from the sync log.
+
+### Changed
+
+- `Scraper#parse_fuel_logs` replaces `parse_fuel_log_list` + `parse_fuel_log_detail`. The new GraphQL response carries every field per entry, so flattening `data.myVehicle.fuelLogs.results` directly into `DetailEntry` rows is enough — no fallback shape detection, no per-entry detail call, no second round-trip per fillup.
+- "Missing previous" fuel-economy rows (GasBuddy's name for the first fillup of a tank, or any fillup without enough history to compute economy) now correctly surface as `nil` `l_per_100km` instead of being treated as an error.
+
 ## [0.8.6] - 2026-05-02
 
 ### Changed

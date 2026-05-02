@@ -36,45 +36,53 @@ class GasBuddyScraperTest < ActiveSupport::TestCase
     refute(vehicles.any? { |v| v[:name].include?("Should Not Match") })
   end
 
-  test "parse_fuel_log_list pulls id + filledAt pairs" do
+  test "parse_fuel_logs flattens results into DetailEntry rows with normalised fields" do
     payload = {
       "data" => {
-        "vehicleFuelLogs" => [
-          { "id" => "entry-1", "filledAt" => "2026-04-17T16:00:04Z" },
-          { "id" => "entry-2", "filledAt" => "2026-04-04T18:57:39Z" },
-        ],
-      },
-    }
-    entries = GasMoney::GasBuddy::Scraper.parse_fuel_log_list(payload)
-
-    assert_equal(["entry-1", "entry-2"], entries.map(&:uuid))
-  end
-
-  test "parse_fuel_log_detail normalises fields and converts dollar prices to cents" do
-    payload = {
-      "data" => {
-        "vehicleFuelLog" => {
-          "id" => "entry-1",
-          "filledAt" => "2026-04-17T16:00:04Z",
-          "totalCost" => "105.45",
-          "quantity" => "64.733",
-          "unitPrice" => "1.629",
-          "odometer" => "111616",
-          "fuelEconomy" => "10.3",
+        "myVehicle" => {
+          "guid" => "vehicle-1",
+          "fuelLogs" => {
+            "results" => [
+              {
+                "guid" => "entry-1",
+                "purchaseDate" => "2026-04-17T16:00:04Z",
+                "totalCost" => "105.45",
+                "amountFilled" => "64.733",
+                "pricePerUnit" => "162.9",
+                "odometer" => "111616",
+                "fuelEconomy" => {
+                  "status" => "complete",
+                  "fuelEconomy" => { "fuelEconomy" => "10.3", "fuelEconomyUnits" => "L/100km" },
+                },
+              },
+              {
+                "guid" => "entry-2",
+                "purchaseDate" => "2026-04-04T18:57:39Z",
+                "totalCost" => "52.99",
+                "amountFilled" => "32.5",
+                "pricePerUnit" => "163.1",
+                "odometer" => "111200",
+                "fuelEconomy" => { "status" => "missingPrevious", "fuelEconomy" => nil },
+              },
+            ],
+          },
         },
       },
     }
-    detail = GasMoney::GasBuddy::Scraper.parse_fuel_log_detail(payload)
 
-    assert_equal("entry-1", detail.uuid)
-    assert_in_delta(105.45,  detail.total_cost,       0.001)
-    assert_in_delta(64.733,  detail.quantity_liters,  0.001)
-    assert_in_delta(162.9,   detail.unit_price_cents, 0.001)
-    assert_equal(111_616,    detail.odometer)
-    assert_in_delta(10.3,    detail.l_per_100km, 0.001)
+    entries = GasMoney::GasBuddy::Scraper.parse_fuel_logs(payload)
+
+    assert_equal(["entry-1", "entry-2"], entries.map(&:uuid))
+    assert_in_delta(105.45,  entries[0].total_cost,       0.001)
+    assert_in_delta(64.733,  entries[0].quantity_liters,  0.001)
+    assert_in_delta(162.9,   entries[0].unit_price_cents, 0.001)
+    assert_equal(111_616,    entries[0].odometer)
+    assert_in_delta(10.3,    entries[0].l_per_100km, 0.001)
+    assert_nil(entries[1].l_per_100km, "missingPrevious entries should surface nil fuel economy")
   end
 
-  test "parse_fuel_log_detail returns nil when the entry payload is empty" do
-    assert_nil(GasMoney::GasBuddy::Scraper.parse_fuel_log_detail({ "data" => {} }))
+  test "parse_fuel_logs returns [] when the response carries no results" do
+    assert_equal([], GasMoney::GasBuddy::Scraper.parse_fuel_logs({ "data" => { "myVehicle" => nil } }))
+    assert_equal([], GasMoney::GasBuddy::Scraper.parse_fuel_logs({ "data" => {} }))
   end
 end

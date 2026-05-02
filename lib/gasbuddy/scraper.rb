@@ -10,7 +10,6 @@ module GasMoney
     module Scraper
       VEHICLE_LINK_PATTERN = %r{\A/account/vehicles/(?<uuid>[0-9a-f-]{36})\z}
 
-      ListEntry = Struct.new(:uuid, :filled_at, keyword_init: true)
       DetailEntry = Struct.new(
         :uuid,
         :filled_at,
@@ -49,37 +48,29 @@ module GasMoney
         by_uuid.map { |uuid, name| { uuid: uuid, name: name } }
       end
 
-      # Parses the GraphQL response for the fuel-log-book entries list.
-      # The exact GraphQL operation name and shape were inferred from
-      # network traces; if the API shape changes, only this function
-      # needs updating.
-      def parse_fuel_log_list(graphql_response)
-        rows = dig_collection(graphql_response, "data", "vehicleFuelLogs") ||
-          dig_collection(graphql_response, "data", "fuelLogs") ||
-          []
-        rows.filter_map do |entry|
-          uuid = entry["id"] || entry["uuid"]
-          filled_at = entry["filledAt"] || entry["timestamp"] || entry["date"]
-          next if uuid.nil? || filled_at.nil?
+      # Parses the GraphQL response for `myVehicle(guid:).fuelLogs`.
+      # Each FuelLog carries every field we need, so the response is
+      # flattened into DetailEntry rows directly — no separate detail
+      # fetch.
+      def parse_fuel_logs(graphql_response)
+        results = graphql_response.dig("data", "myVehicle", "fuelLogs", "results")
+        return [] unless results.is_a?(Array)
 
-          ListEntry.new(uuid: uuid, filled_at: normalize_iso8601(filled_at))
+        results.filter_map do |entry|
+          uuid = entry["guid"]
+          purchase_date = entry["purchaseDate"]
+          next if uuid.nil? || purchase_date.nil?
+
+          DetailEntry.new(
+            uuid:             uuid,
+            filled_at:        normalize_iso8601(purchase_date),
+            total_cost:       to_float(entry["totalCost"]),
+            quantity_liters:  to_float(entry["amountFilled"]),
+            unit_price_cents: to_float(entry["pricePerUnit"]),
+            odometer:         to_int(entry["odometer"]),
+            l_per_100km:      extract_economy(entry["fuelEconomy"]),
+          )
         end
-      end
-
-      def parse_fuel_log_detail(graphql_response)
-        entry = graphql_response.dig("data", "vehicleFuelLog") ||
-          graphql_response.dig("data", "fuelLog")
-        return if entry.nil?
-
-        DetailEntry.new(
-          uuid:             entry["id"] || entry["uuid"],
-          filled_at:        normalize_iso8601(entry["filledAt"] || entry["timestamp"] || entry["date"]),
-          total_cost:       to_float(entry["totalCost"] || entry["cost"]),
-          quantity_liters:  to_float(entry["quantity"] || entry["liters"]),
-          unit_price_cents: extract_unit_price_cents(entry),
-          odometer:         to_int(entry["odometer"]),
-          l_per_100km:      extract_economy(entry),
-        )
       end
 
       def normalize_iso8601(value)
@@ -106,31 +97,18 @@ module GasMoney
         nil
       end
 
-      def dig_collection(payload, *keys)
-        value = payload.dig(*keys)
-        return value if value.is_a?(Array)
+      # GasBuddy nests the actual L/100km figure under
+      # `fuelEconomy.fuelEconomy.fuelEconomy` (yes, three deep — that's
+      # the shape `myVehicle.fuelLogs.results[].fuelEconomy` returns).
+      # The outer `status` is "complete" for normal fillups and
+      # "missingPrevious" for the first fillup of a tank or any fillup
+      # without enough history to compute economy — those legitimately
+      # have no L/100km and we surface that as nil.
+      def extract_economy(fuel_economy)
+        return if fuel_economy.nil?
+        return if fuel_economy["status"] == "missingPrevious"
 
-        nested = value.is_a?(Hash) ? value["entries"] || value["nodes"] || value["items"] : nil
-        nested.is_a?(Array) ? nested : nil
-      end
-
-      # GasBuddy's GraphQL surfaces unit price in different shapes
-      # depending on the operation. Accept either a flat cents value
-      # ("unitPriceCents") or the more common dollar string ("price"
-      # or "unitPrice") and normalise to cents.
-      def extract_unit_price_cents(entry)
-        cents = entry["unitPriceCents"]
-        return to_float(cents) if cents
-
-        dollars = entry["unitPrice"] || entry["price"]
-        dollars_f = to_float(dollars)
-        dollars_f && (dollars_f * 100.0).round(3)
-      end
-
-      def extract_economy(entry)
-        # Fuel economy is typically L/100km on Canadian accounts. Accept
-        # the value as-is; partial fills come through as nil/missing.
-        to_float(entry["fuelEconomy"] || entry["economyLper100km"] || entry["lPer100km"])
+        to_float(fuel_economy.dig("fuelEconomy", "fuelEconomy"))
       end
     end
   end

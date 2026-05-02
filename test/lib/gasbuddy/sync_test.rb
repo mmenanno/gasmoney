@@ -25,7 +25,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
   end
 
   test "creates a SyncRun with status=ok when there are no remote entries" do
-    stub_fuel_log_list([])
+    stub_fuel_logs([])
 
     run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
 
@@ -37,16 +37,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
   end
 
   test "inserts fillups for new entries" do
-    stub_fuel_log_list([{ "id" => "entry-1", "filledAt" => "2026-04-17T16:00:04Z" }])
-    stub_fuel_log_detail(
-      "entry-1",
-      filled_at: "2026-04-17T16:00:04Z",
-      total_cost: 105.45,
-      quantity: 64.733,
-      unit_price: 1.629,
-      odometer: 111_616,
-      economy: 10.3,
-    )
+    stub_fuel_logs([entry_payload("entry-1")])
 
     run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
 
@@ -70,16 +61,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       l_per_100km:       10.3,
     )
 
-    stub_fuel_log_list([{ "id" => "entry-1", "filledAt" => "2026-04-17T16:00:04Z" }])
-    stub_fuel_log_detail(
-      "entry-1",
-      filled_at: "2026-04-17T16:00:04Z",
-      total_cost: 105.45,
-      quantity: 64.733,
-      unit_price: 1.629,
-      odometer: 111_616,
-      economy: 10.3,
-    )
+    stub_fuel_logs([entry_payload("entry-1")])
 
     run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
 
@@ -98,7 +80,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       gasbuddy_entry_uuid: "entry-1",
     )
 
-    stub_fuel_log_list([{ "id" => "entry-1", "filledAt" => "2026-04-17T16:00:04Z" }])
+    stub_fuel_logs([entry_payload("entry-1")])
 
     run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
 
@@ -118,7 +100,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
 
   test "skips remote vehicles that aren't linked locally" do
     @vehicle.update!(gasbuddy_uuid: nil)
-    stub_fuel_log_list([])
+    stub_fuel_logs([])
 
     run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
 
@@ -133,38 +115,37 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       .to_return(status: 200, body: File.read(File.expand_path("../../fixtures/gasbuddy_vehicles.html", __dir__)))
   end
 
-  def stub_fuel_log_list(entries)
+  def stub_fuel_logs(results)
     stub_request(:post, "https://www.gasbuddy.com/graphql")
-      .with(body: hash_including("operationName" => "VehicleFuelLogs"))
-      .to_return(
-        status: 200,
-        body: JSON.generate("data" => { "vehicleFuelLogs" => entries }),
-        headers: { "Content-Type" => "application/json" },
-      )
-  end
-
-  def stub_fuel_log_detail(entry_id, filled_at:, total_cost:, quantity:, unit_price:, odometer:, economy:)
-    stub_request(:post, "https://www.gasbuddy.com/graphql")
-      .with(body: hash_including(
-        "operationName" => "VehicleFuelLog",
-        "variables" => hash_including("entryId" => entry_id),
-      ))
+      .with(body: hash_including("operationName" => "MyVehicleFuelLogs"))
       .to_return(
         status: 200,
         body: JSON.generate(
           "data" => {
-            "vehicleFuelLog" => {
-              "id" => entry_id,
-              "filledAt" => filled_at,
-              "totalCost" => total_cost,
-              "quantity" => quantity,
-              "unitPrice" => unit_price,
-              "odometer" => odometer,
-              "fuelEconomy" => economy,
+            "myVehicle" => {
+              "guid" => @vehicle.gasbuddy_uuid,
+              "fuelLogs" => { "results" => results },
             },
           },
         ),
         headers: { "Content-Type" => "application/json" },
       )
+  end
+
+  def entry_payload(uuid, purchase_date: "2026-04-17T16:00:04Z", total_cost: "105.45",
+    amount_filled: "64.733", price_per_unit: "162.9", odometer: "111616",
+    economy: "10.3")
+    {
+      "guid" => uuid,
+      "purchaseDate" => purchase_date,
+      "totalCost" => total_cost,
+      "amountFilled" => amount_filled,
+      "pricePerUnit" => price_per_unit,
+      "odometer" => odometer,
+      "fuelEconomy" => {
+        "status" => economy ? "complete" : "missingPrevious",
+        "fuelEconomy" => economy ? { "fuelEconomy" => economy, "fuelEconomyUnits" => "L/100km" } : nil,
+      },
+    }
   end
 end

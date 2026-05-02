@@ -54,9 +54,16 @@ module GasMoney
           body: body,
           headers: {
             "Content-Type" => "application/json",
-            "Accept" => "application/json",
+            "Accept" => "*/*",
             "apollo-require-preflight" => "true",
             "gbcsrf" => @setting.csrf_token.to_s,
+            # Cloudflare's WAF on www.gasbuddy.com rejects /graphql with
+            # a plain "Bad Request" 400 when Origin/Referer are absent or
+            # don't match the site — those headers tell the WAF the call
+            # is same-origin from the user's session (which it is, just
+            # via Faraday rather than the browser fetch wrapper).
+            "Origin" => BASE_URL,
+            "Referer" => "#{BASE_URL}/account/vehicles",
           },
         )
       end
@@ -133,7 +140,11 @@ module GasMoney
         when 500..599
           raise Error, "GasBuddy returned #{response.status}"
         else
-          raise Error, "Unexpected GasBuddy response #{response.status}"
+          # Capture a body snippet so GraphQL field-not-found / variable-
+          # type errors are diagnosable from the sync log without having
+          # to attach a debugger to the running container.
+          body_snippet = response.body.to_s[0, 400]
+          raise Error, "Unexpected GasBuddy response #{response.status}: #{body_snippet}"
         end
       end
 

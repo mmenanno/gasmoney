@@ -26,28 +26,45 @@ module GasMoney
     # happened — including any partial failures — without losing
     # context.
     class Sync
-      LIST_QUERY_OPERATION   = "VehicleFuelLogs"
-      DETAIL_QUERY_OPERATION = "VehicleFuelLog"
+      # Single-shot GraphQL query that pulls a vehicle's fuel logs in
+      # the shape GasBuddy's own React app uses. Schema discovered by
+      # inspecting `window.__APOLLO_STATE__` after navigating to a
+      # vehicle's account page: the root query is `myVehicle(guid:)`
+      # returning a `Vehicle` whose `fuelLogs(limit:)` returns a
+      # `FuelLogResults { results: [FuelLog] }` connection. Each
+      # `FuelLog` carries every field we need (timestamp, cost,
+      # quantity, unit price, odometer, fuel economy with its own
+      # status enum), so a single query is enough — no separate
+      # detail fetch.
+      FUEL_LOGS_OPERATION = "MyVehicleFuelLogs"
+      FUEL_LOGS_LIMIT     = 1000
 
-      LIST_QUERY = <<~GQL
-        query VehicleFuelLogs($vehicleId: String!) {
-          vehicleFuelLogs(vehicleId: $vehicleId) {
-            id
-            filledAt
-          }
-        }
-      GQL
-
-      DETAIL_QUERY = <<~GQL
-        query VehicleFuelLog($vehicleId: String!, $entryId: String!) {
-          vehicleFuelLog(vehicleId: $vehicleId, id: $entryId) {
-            id
-            filledAt
-            totalCost
-            quantity
-            unitPrice
-            odometer
-            fuelEconomy
+      FUEL_LOGS_QUERY = <<~GQL
+        query MyVehicleFuelLogs($guid: ID!, $limit: Int) {
+          myVehicle(guid: $guid) {
+            guid
+            fuelLogs(limit: $limit) {
+              results {
+                guid
+                purchaseDate
+                totalCost
+                amountFilled
+                pricePerUnit
+                odometer
+                fuelType
+                status
+                fuelEconomy {
+                  status
+                  fuelEconomy {
+                    fuelEconomy
+                    fuelEconomyUnits
+                  }
+                }
+                location {
+                  name
+                }
+              }
+            }
           }
         }
       GQL
@@ -134,44 +151,28 @@ module GasMoney
 
       def sync_vehicle(vehicle)
         @run.log!(:info, "Syncing #{vehicle.display_name} (#{vehicle.gasbuddy_uuid})")
-        list_response = @client.post_graphql(
-          operation_name: LIST_QUERY_OPERATION,
-          variables:      { vehicleId: vehicle.gasbuddy_uuid },
-          query:          LIST_QUERY,
+        response = @client.post_graphql(
+          operation_name: FUEL_LOGS_OPERATION,
+          variables:      { guid: vehicle.gasbuddy_uuid, limit: FUEL_LOGS_LIMIT },
+          query:          FUEL_LOGS_QUERY,
         )
-        list_payload = JSON.parse(list_response.body)
-        entries = Scraper.parse_fuel_log_list(list_payload)
-        @run.log!(:info, "Vehicle #{vehicle.display_name}: #{entries.size} remote entries")
+        details = Scraper.parse_fuel_logs(JSON.parse(response.body))
+        @run.log!(:info, "Vehicle #{vehicle.display_name}: #{details.size} remote entries")
         @run.update!(vehicles_synced: @run.vehicles_synced + 1)
 
         existing_uuids = Fillup.where(vehicle_id: vehicle.id).where.not(gasbuddy_entry_uuid: nil).pluck(:gasbuddy_entry_uuid)
         existing_uuid_set = existing_uuids.to_set
 
-        entries.each do |entry|
-          if existing_uuid_set.include?(entry.uuid)
+        details.each do |detail|
+          if existing_uuid_set.include?(detail.uuid)
             increment(:fillups_skipped)
             next
           end
-
-          detail = fetch_detail(vehicle, entry.uuid)
-          next if detail.nil?
 
           process_detail(vehicle, detail)
         end
       rescue StandardError => e
         @run.log!(:error, "Sync failed for #{vehicle.display_name}", detail: { error: e.message, klass: e.class.name })
-      end
-
-      def fetch_detail(vehicle, entry_uuid)
-        response = @client.post_graphql(
-          operation_name: DETAIL_QUERY_OPERATION,
-          variables:      { vehicleId: vehicle.gasbuddy_uuid, entryId: entry_uuid },
-          query:          DETAIL_QUERY,
-        )
-        Scraper.parse_fuel_log_detail(JSON.parse(response.body))
-      rescue StandardError => e
-        @run.log!(:warn, "Failed to fetch detail for entry #{entry_uuid}", detail: { error: e.message })
-        nil
       end
 
       def process_detail(vehicle, detail)
