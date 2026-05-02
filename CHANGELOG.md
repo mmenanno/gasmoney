@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-02
+
+### Fixed
+
+- "Test connection" button on `/sync` crashed with `NameError: uninitialized constant GasMoney::GasBuddy::FlareSolverr` in the production container. `lib/gasbuddy/client.rb` referenced the FlareSolverr class but never `require_relative`'d it; the code worked in tests because each test file loaded the file directly, and worked at runtime previously because `Client#refresh_cookies!` is the only path that touches the constant (and only during sync). The new test button is the first place a route handler resolves the constant during request rendering. Added the missing `require_relative "flaresolverr"` to `client.rb` and a pair of web tests that exercise `POST /sync/flaresolverr/test` end-to-end so this kind of missing-require regression won't slip through again.
+
 ## [0.7.0] - 2026-05-02
 
 ### Added

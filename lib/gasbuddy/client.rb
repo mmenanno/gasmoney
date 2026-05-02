@@ -6,6 +6,8 @@ require "http-cookie"
 require "json"
 require "nokogiri"
 
+require_relative "flaresolverr"
+
 module GasMoney
   module GasBuddy
     # HTTP client for authenticated GasBuddy traffic. The Cloudflare
