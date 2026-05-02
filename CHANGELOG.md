@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-02
+
+### Added
+
+- Manual fillup entry per vehicle. New page at `/vehicles/:id/fillups` with a form that mirrors the GasBuddy CSV row shape (filled-at, total cost, quantity, unit price, odometer, optional L/100km, optional location) plus a delete-with-confirm history table. Fillup count on `/vehicles` is now a link into this page. Same dedup key as CSV imports — a manually-entered fillup that collides with an imported row produces a `RecordNotUnique` flash.
+- Custom confirm dialog component (`public/confirm.js` + `.modal-overlay` styles). Forms opt in via `data-confirm` / `data-confirm-action` / `data-confirm-tone="danger|default"`. Replaces the native `window.confirm()` previously used on the vehicle delete row, and applies it consistently to recent-search, saved-trip, and fillup deletes. Default-focuses Cancel, traps Tab focus, dismisses on Escape and overlay click.
+- Footer now shows the running app version (read once at boot from `VERSION` into `GasMoney::VERSION`).
+
+### Changed
+
+- Disabled JetBrains Mono programming ligatures globally (`font-variant-ligatures: none` + `font-feature-settings: "liga" 0, "calt" 0`). User-typed strings like `Person <> Place` were rendering with `<>` fused into a single diamond glyph; the cure is to turn ligatures off site-wide. Programming ligatures aren't useful in a data-display context.
+- Footer copy trimmed: "local SQLite · GasBuddy CSV imports · github.com/mmenanno/gasmoney" → "github.com/mmenanno/gasmoney · v\<version\>".
+
 ## [0.1.3] - 2026-05-02
 
 ### Added

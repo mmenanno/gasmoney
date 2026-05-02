@@ -1,0 +1,77 @@
+<section class="form-section">
+  <h3 class="section-heading">Add a fillup — <%= h(@vehicle.display_name) %></h3>
+  <p class="lede">Manually log a fuel-up. Same shape as a CSV row from GasBuddy: total cost, litres, unit price, odometer, and (for non-partial fills) the L/100km reading off the dash.</p>
+
+  <% now_local = Time.now.strftime("%Y-%m-%dT%H:%M") %>
+  <form action="/vehicles/<%= @vehicle.id %>/fillups" method="post" class="form">
+    <label class="field">
+      <span class="field__label">Filled at</span>
+      <input type="datetime-local" name="filled_at" value="<%= now_local %>" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Total cost ($)</span>
+      <input type="number" name="total_cost" min="0" step="0.01" placeholder="50.00" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Quantity (L)</span>
+      <input type="number" name="quantity_liters" min="0" step="0.001" placeholder="40.000" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Unit price (¢/L)</span>
+      <input type="number" name="unit_price_cents" min="0" step="0.1" placeholder="125.0" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Odometer (km)</span>
+      <input type="number" name="odometer" min="0" step="1" placeholder="100000">
+    </label>
+    <label class="field">
+      <span class="field__label">Fuel economy (L/100km)<span class="field__hint">leave blank for partial fill</span></span>
+      <input type="number" name="l_per_100km" min="0" step="0.1" placeholder="9.0">
+    </label>
+    <label class="field">
+      <span class="field__label">Location</span>
+      <input type="text" name="location" maxlength="80" placeholder="optional">
+    </label>
+    <button type="submit" class="btn btn--primary">Add fillup</button>
+  </form>
+</section>
+
+<section class="history">
+  <h3 class="section-heading">Existing fillups</h3>
+  <% rows = @vehicle.fillups.recent_first.limit(50) %>
+  <% if rows.empty? %>
+    <p class="empty">No fillups for this vehicle yet.</p>
+  <% else %>
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>Filled at</th>
+          <th class="num">Cost</th>
+          <th class="num">L</th>
+          <th class="num">¢/L</th>
+          <th class="num">Odometer</th>
+          <th class="num">L/100km</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.each do |f| %>
+          <tr>
+            <td><%= fmt_date(f.filled_at) %></td>
+            <td class="num"><%= fmt_money(f.total_cost) %></td>
+            <td class="num"><%= format("%.2f", f.quantity_liters) %></td>
+            <td class="num"><%= format("%.1f", f.unit_price_cents) %></td>
+            <td class="num"><%= f.odometer || "—" %></td>
+            <td class="num"><%= f.l_per_100km ? format("%.1f", f.l_per_100km) : "partial" %></td>
+            <td class="num">
+              <form action="/fillups/<%= f.id %>/delete" method="post" class="inline-form" data-confirm="Delete this fillup? This cannot be undone." data-confirm-action="Delete fillup">
+                <button type="submit" class="btn-delete" aria-label="Delete">×</button>
+              </form>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+  <p class="back"><a href="/vehicles" class="nav-link">← back to vehicles</a></p>
+</section>

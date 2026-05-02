@@ -117,6 +117,60 @@ class AppTest < ActiveSupport::TestCase
     assert_nil(GasMoney::SavedTrip.find_by(id: trip.id))
   end
 
+  test "GET /vehicles/:id/fillups renders the fillup-management page" do
+    vehicle = create_vehicle
+
+    get "/vehicles/#{vehicle.id}/fillups"
+
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, "Add a fillup")
+  end
+
+  test "POST /vehicles/:id/fillups creates a fillup with the supplied values" do
+    vehicle = create_vehicle
+
+    assert_difference("GasMoney::Fillup.count", 1) do
+      post "/vehicles/#{vehicle.id}/fillups", {
+        filled_at: "2026-04-17T16:00",
+        total_cost: "50.00",
+        quantity_liters: "40.0",
+        unit_price_cents: "125.0",
+        odometer: "100000",
+        l_per_100km: "9.0",
+      }
+    end
+    fillup = GasMoney::Fillup.last
+
+    assert_equal(vehicle.id, fillup.vehicle_id)
+    assert_in_delta(9.0, fillup.l_per_100km)
+    assert_equal(0, fillup.partial_fill)
+  end
+
+  test "POST /vehicles/:id/fillups treats blank l_per_100km as a partial fill" do
+    vehicle = create_vehicle
+
+    post "/vehicles/#{vehicle.id}/fillups", {
+      filled_at: "2026-04-17T16:00",
+      total_cost: "50.00",
+      quantity_liters: "40.0",
+      unit_price_cents: "125.0",
+      odometer: "100000",
+    }
+    fillup = GasMoney::Fillup.last
+
+    assert_nil(fillup.l_per_100km)
+    assert_equal(1, fillup.partial_fill)
+  end
+
+  test "POST /fillups/:id/delete removes the fillup" do
+    vehicle = create_vehicle
+    fillup = create_fillup(vehicle: vehicle)
+
+    post "/fillups/#{fillup.id}/delete"
+
+    assert_nil(GasMoney::Fillup.find_by(id: fillup.id))
+  end
+
   test "GET /?trip=ID prefills the calculator with the saved trip" do
     create_vehicle
     trip = GasMoney::SavedTrip.create!(name: "Errands", base_kilometers: 42, round_trip: 1)

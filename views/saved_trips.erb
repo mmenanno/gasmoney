@@ -41,7 +41,9 @@
             <td class="num"><%= format("%g", t["base_kilometers"]) %></td>
             <td><%= t["round_trip"] == 1 ? "yes" : "no" %></td>
             <td class="num">
-              <form action="/saved_trips/<%= t["id"] %>/delete" method="post" class="inline-form">
+              <form action="/saved_trips/<%= t["id"] %>/delete" method="post" class="inline-form"
+                    data-confirm='Delete saved trip <strong><%= h(t["name"]) %></strong>?'
+                    data-confirm-action="Delete trip">
                 <button type="submit" class="btn-delete" aria-label="Delete">×</button>
               </form>
             </td>

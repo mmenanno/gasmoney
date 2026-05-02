@@ -148,7 +148,9 @@
             <td class="num"><%= fmt_money(s["estimated_cost"]) %></td>
             <td><%= h(fmt_method(s["calc_method"])) %></td>
             <td class="num">
-              <form action="/searches/<%= s["id"] %>/delete" method="post" class="inline-form">
+              <form action="/searches/<%= s["id"] %>/delete" method="post" class="inline-form"
+                    data-confirm="Remove this search from the history?"
+                    data-confirm-action="Remove">
                 <button type="submit" class="btn-delete" aria-label="Delete">×</button>
               </form>
             </td>

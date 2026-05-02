@@ -22,6 +22,11 @@ html, body {
   font-size: 15px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  /* JetBrains Mono ships programming ligatures (e.g. <> renders as a
+     single diamond glyph). They're useful in code editors but confusing
+     when showing user-typed strings like trip names. Turn them off. */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -276,6 +281,71 @@ a:hover { color: var(--accent); }
   font-size: 13px;
   text-align: right;
 }
+
+/* Modal — used by confirm.js for destructive-action confirmations */
+body.modal-open { overflow: hidden; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 14, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+  animation: modal-fade 120ms ease-out;
+}
+.modal-overlay[hidden] { display: none; }
+
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  max-width: 440px;
+  width: 100%;
+  padding: 24px 24px 20px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  animation: modal-rise 140ms ease-out;
+}
+@keyframes modal-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.modal__title {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 18px;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.modal__body {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+.modal__body strong { color: var(--accent); font-weight: 500; }
+
+.modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.modal__actions .btn { margin-top: 0; padding: 9px 16px; }
+.modal__actions .btn--ghost { color: var(--ink); }
+
+.btn--danger {
+  background: var(--alert);
+  color: #1a0e08;
+  font-weight: 500;
+}
+.btn--danger:hover { background: #e29d80; }
 
 /* Custom select component */
 .select {

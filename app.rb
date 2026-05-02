@@ -2,6 +2,7 @@
 
 require "sinatra/base"
 require "securerandom"
+require "time"
 
 require_relative "lib/db"
 require_relative "lib/importer"
@@ -9,6 +10,7 @@ require_relative "lib/calculator"
 
 module GasMoney
   DEV_SESSION_SECRET = "gasmoney-local-dev-secret-do-not-use-in-prod-#{"x" * 64}".freeze
+  VERSION = File.read(File.expand_path("VERSION", __dir__)).strip.freeze
 
   class App < Sinatra::Base
     enable :sessions
@@ -92,6 +94,34 @@ module GasMoney
       end
 
       def h(value) = Rack::Utils.escape_html(value.to_s)
+
+      # Maps a fillup form submission to the column types Fillup expects.
+      # `filled_at` arrives as a `<input type="datetime-local">` value
+      # ("YYYY-MM-DDTHH:MM"); we normalise it to UTC ISO 8601 so the
+      # importer's dedup key shape stays consistent.
+      def build_fillup_attrs(form)
+        filled_at_raw = form["filled_at"].to_s.strip
+        filled_at = filled_at_raw.empty? ? Time.now.utc : Time.parse(filled_at_raw).utc
+
+        {
+          filled_at: filled_at.iso8601,
+          total_cost: Float(form["total_cost"]),
+          quantity_liters: Float(form["quantity_liters"]),
+          unit_price_cents: Float(form["unit_price_cents"]),
+          odometer: form["odometer"].to_s.strip.empty? ? nil : Integer(form["odometer"]),
+          l_per_100km: form["l_per_100km"].to_s.strip.empty? ? nil : Float(form["l_per_100km"]),
+          partial_fill: form["l_per_100km"].to_s.strip.empty? ? 1 : 0,
+          fuel_type: presence_param(form["fuel_type"]),
+          location: presence_param(form["location"]),
+          city: presence_param(form["city"]),
+          notes: presence_param(form["notes"]),
+        }
+      end
+
+      def presence_param(value)
+        s = value.to_s.strip
+        s.empty? ? nil : s
+      end
     end
 
     get "/health" do
@@ -188,6 +218,37 @@ module GasMoney
     post "/vehicles/:id/delete" do
       Vehicle.where(id: params["id"].to_i).destroy_all
       redirect "/vehicles"
+    end
+
+    # ---- Fillups (per-vehicle) ----
+
+    get "/vehicles/:id/fillups" do
+      @vehicle = Vehicle.find_by(id: params["id"].to_i)
+      halt(404, "Vehicle not found") unless @vehicle
+
+      erb :fillups
+    end
+
+    post "/vehicles/:id/fillups" do
+      vehicle = Vehicle.find_by(id: params["id"].to_i)
+      halt(404, "Vehicle not found") unless vehicle
+
+      attrs = build_fillup_attrs(params)
+      Fillup.create!(attrs.merge(vehicle: vehicle))
+      set_flash(:success, "Fillup added.")
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+      set_flash(:error, "Couldn't save: #{e.message}.")
+    rescue ArgumentError, TypeError => e
+      set_flash(:error, "Invalid input: #{e.message}.")
+    ensure
+      redirect("/vehicles/#{params["id"].to_i}/fillups")
+    end
+
+    post "/fillups/:id/delete" do
+      fillup = Fillup.find_by(id: params["id"].to_i)
+      vehicle_id = fillup&.vehicle_id
+      fillup&.destroy
+      redirect(vehicle_id ? "/vehicles/#{vehicle_id}/fillups" : "/vehicles")
     end
 
     # ---- Import ----

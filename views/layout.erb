@@ -12,6 +12,7 @@
   <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="apple-touch-icon" href="/icons/icon-256.png">
   <script src="/select.js" defer></script>
+  <script src="/confirm.js" defer></script>
 </head>
 <body>
   <main class="page">
@@ -34,7 +35,7 @@
     <%= yield %>
 
     <footer class="footer">
-      <span>local SQLite · GasBuddy CSV imports · <a href="https://github.com/mmenanno/gasmoney" class="link-soft">github.com/mmenanno/gasmoney</a></span>
+      <span><a href="https://github.com/mmenanno/gasmoney" class="link-soft">github.com/mmenanno/gasmoney</a> · v<%= GasMoney::VERSION %></span>
     </footer>
   </main>
 </body>
