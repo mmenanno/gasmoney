@@ -3,7 +3,7 @@
 source "https://rubygems.org"
 
 # Web
-gem "puma",          "~> 6.6"
+gem "puma",          "~> 8.0"
 gem "rackup",        "~> 2.2"
 gem "sinatra",       "~> 4.1"
 
