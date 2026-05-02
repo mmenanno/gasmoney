@@ -1,16 +1,11 @@
 name: lint
 
-# Reusable workflow. CI's main pipeline and the build job both `uses:` this
-# so RuboCop's verdict is the gate before any image leaves the runner.
+# Reusable workflow. ci.yml invokes this via `uses:` so RuboCop's verdict
+# is the gate before tests, image build, or publish run. Not triggered
+# on its own — pull_request / push entry points live in ci.yml so we
+# don't get duplicate "lint" check runs in the PR UI.
 on:
   workflow_call:
-  pull_request:
-  push:
-    branches: [main]
-
-concurrency:
-  group: lint-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   rubocop:

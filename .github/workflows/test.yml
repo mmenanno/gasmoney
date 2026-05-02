@@ -1,16 +1,11 @@
 name: test
 
-# Reusable workflow. CI's main pipeline and the build job both `uses:` this
-# so the test suite has to pass before any image is built or published.
+# Reusable workflow. ci.yml invokes this via `uses:` so the test suite
+# has to pass before image build or publish run. Not triggered on its
+# own — pull_request / push entry points live in ci.yml so we don't get
+# duplicate "test" check runs in the PR UI.
 on:
   workflow_call:
-  pull_request:
-  push:
-    branches: [main]
-
-concurrency:
-  group: test-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   minitest:
