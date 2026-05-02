@@ -12,6 +12,7 @@ require_relative "models/saved_trip"
 require_relative "models/gasbuddy_setting"
 require_relative "models/sync_run"
 require_relative "models/sync_log_entry"
+require_relative "models/gasbuddy_remote_vehicle"
 
 module GasMoney
   module DB
@@ -140,6 +141,27 @@ module GasMoney
             default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
           )
         end
+
+        # Persisted GasBuddy garage. The remote vehicle list used to be
+        # fetched on every sync run and pulled out of the most recent
+        # SyncLogEntry's JSON detail; that made it disappear when the
+        # log was cleared and forced sync to re-scrape /account/vehicles
+        # before any fillup work. This table holds the garage between
+        # runs so a) the linking UI is stable, b) sync skips the
+        # discovery hop, c) users can mark unwanted vehicles "ignored"
+        # so they're permanently skipped.
+        create_table(:gasbuddy_remote_vehicles, if_not_exists: true) do |t|
+          t.string(:uuid, null: false)
+          t.string(:display_name, null: false)
+          t.boolean(:ignored, null: false, default: false)
+          t.string(:last_seen_at)
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+          t.index(:uuid, unique: true, name: "idx_gasbuddy_remote_vehicles_uuid")
+        end
       end
     end
 
@@ -168,6 +190,21 @@ module GasMoney
 
       [:partial_fill, :fuel_type, :location, :city, :notes].each do |col|
         conn.remove_column(:fillups, col) if conn.column_exists?(:fillups, col)
+      end
+
+      unless conn.table_exists?(:gasbuddy_remote_vehicles)
+        conn.create_table(:gasbuddy_remote_vehicles) do |t|
+          t.string(:uuid, null: false)
+          t.string(:display_name, null: false)
+          t.boolean(:ignored, null: false, default: false)
+          t.string(:last_seen_at)
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+        end
+        conn.add_index(:gasbuddy_remote_vehicles, :uuid, unique: true, name: "idx_gasbuddy_remote_vehicles_uuid")
       end
 
       Vehicle.reset_column_information

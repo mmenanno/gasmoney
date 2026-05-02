@@ -742,6 +742,21 @@ body.modal-open { overflow: hidden; }
 }
 
 .ledger--linking td { padding: 14px 16px 14px 0; }
+.ledger-row--ignored td { opacity: 0.45; }
+.ledger-row--ignored td .caption-mono { opacity: 0.7; }
+
+/* Per-row provenance glyph on the fillups ledger. ↻ = synced from
+   GasBuddy, ✎ = added manually. Visual weight kept low so the
+   numeric columns remain the focal point. */
+.ledger__source { width: 24px; padding-right: 0; text-align: center; }
+.source-glyph {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1;
+  cursor: help;
+}
+.source-glyph--synced { color: var(--accent); }
+.source-glyph--manual { color: var(--ink-soft); }
 .inline-form--link {
   display: inline-flex;
   gap: 8px;

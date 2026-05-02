@@ -130,16 +130,14 @@ module GasMoney
       def do_run
         fail_run!("GasBuddy credentials are not set") unless @setting.credentials_present?
 
-        @run.log!(:info, "Fetching vehicle list")
-        vehicles_html = @client.get("/account/vehicles").body
-        remote_vehicles = Scraper.parse_vehicles(vehicles_html)
-        @run.log!(:info, "Found #{remote_vehicles.size} vehicles on GasBuddy")
+        # Sync no longer fetches the GasBuddy garage on every run —
+        # that's a separate "Refresh garage" action. Iterate the
+        # already-linked vehicles only, and short-circuit if none.
+        ignored_uuids = GasbuddyRemoteVehicle.ignored.pluck(:uuid).to_set
+        linked = Vehicle.where.not(gasbuddy_uuid: nil).reject { |v| ignored_uuids.include?(v.gasbuddy_uuid) }
 
-        update_remote_vehicle_metadata(remote_vehicles)
-
-        linked = Vehicle.where.not(gasbuddy_uuid: nil).to_a
         if linked.empty?
-          @run.log!(:warn, "No vehicles are linked to a GasBuddy UUID — nothing to sync")
+          @run.log!(:warn, "No vehicles are linked to a GasBuddy UUID — link one on /sync first")
           finalize!(status: "ok")
           return @run
         end
@@ -223,18 +221,6 @@ module GasMoney
           .first
       rescue ArgumentError
         nil
-      end
-
-      def update_remote_vehicle_metadata(remote_vehicles)
-        remote_vehicles.each do |remote|
-          vehicle = Vehicle.find_by(gasbuddy_uuid: remote[:uuid])
-          next if vehicle.nil?
-          # Don't overwrite the user's chosen display name — only
-          # surface remote names elsewhere (e.g. on the linking UI).
-        end
-        # Persist the remote list as transient state in the run log so
-        # the UI can offer linking after the first sync.
-        @run.log!(:info, "Discovered remote vehicles", detail: { vehicles: remote_vehicles })
       end
 
       def increment(field)

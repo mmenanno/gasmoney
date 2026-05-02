@@ -65,14 +65,26 @@
 </section>
 
 <section class="form-section">
-  <h3 class="section-heading">Vehicle linking</h3>
+  <div class="sync-status__head">
+    <h3 class="section-heading">Vehicle linking</h3>
+    <% if @setting.credentials_present? %>
+      <form action="/sync/garage/refresh" method="post" class="inline-form">
+        <button type="submit" class="btn btn--ghost btn--ghost-sm">Refresh garage</button>
+      </form>
+    <% end %>
+  </div>
   <% if @remote_vehicles.empty? %>
     <p class="lede">
-      No remote vehicle list yet — run a sync to fetch your GasBuddy garage.
-      Once it's there, link each remote vehicle to a local one to enable fillup sync.
+      No remote vehicle list yet —
+      <% if @setting.credentials_present? %>
+        click <strong>Refresh garage</strong> to fetch the list of vehicles on your GasBuddy account.
+        Once loaded, link each remote vehicle to a local one (or mark ignored) and run a sync.
+      <% else %>
+        save GasBuddy credentials first, then refresh the garage.
+      <% end %>
     </p>
   <% else %>
-    <p class="lede">Map each GasBuddy vehicle to a local one. Unlinked remote vehicles are skipped.</p>
+    <p class="lede">Map each GasBuddy vehicle to a local one. Unlinked vehicles are skipped each sync; ignored vehicles stay skipped permanently.</p>
     <table class="ledger ledger--linking">
       <thead>
         <tr>
@@ -82,25 +94,31 @@
       </thead>
       <tbody>
         <% @remote_vehicles.each do |remote| %>
-          <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote["uuid"] } %>
-          <% selected_label = linked ? linked.display_name : "— not linked —" %>
-          <tr>
-            <td><%= h(remote["name"]) %><br><span class="caption-mono"><%= h(remote["uuid"]) %></span></td>
+          <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote.uuid } %>
+          <% current_value = if linked then linked.id.to_s
+                             elsif remote.ignored then "ignore"
+                             else "" end %>
+          <% selected_label = if linked then linked.display_name
+                              elsif remote.ignored then "— ignored —"
+                              else "— not linked —" end %>
+          <tr class="<%= 'ledger-row--ignored' if remote.ignored && !linked %>">
+            <td><%= h(remote.display_name) %><br><span class="caption-mono"><%= h(remote.uuid) %></span></td>
             <td>
               <form action="/sync/vehicles/link" method="post" class="inline-form inline-form--link">
-                <input type="hidden" name="remote_uuid" value="<%= h(remote["uuid"]) %>">
+                <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
                 <div class="select" data-select>
                   <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
                     <span class="select__value"><%= h(selected_label) %></span>
                     <span class="select__chevron" aria-hidden="true"></span>
                   </button>
                   <ul class="select__list" role="listbox" hidden>
-                    <li class="select__option<%= ' select__option--selected' unless linked %>" role="option" data-value="">— not linked —</li>
+                    <li class="select__option<%= ' select__option--selected' if current_value == '' %>" role="option" data-value="">— not linked —</li>
+                    <li class="select__option<%= ' select__option--selected' if current_value == 'ignore' %>" role="option" data-value="ignore">— ignored —</li>
                     <% @local_vehicles.each do |v| %>
-                      <li class="select__option<%= ' select__option--selected' if linked && linked.id == v.id %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
+                      <li class="select__option<%= ' select__option--selected' if current_value == v.id.to_s %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
                     <% end %>
                   </ul>
-                  <input type="hidden" name="vehicle_id" value="<%= linked ? linked.id : '' %>">
+                  <input type="hidden" name="vehicle_id" value="<%= h(current_value) %>">
                 </div>
                 <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
               </form>

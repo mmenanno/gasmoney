@@ -41,6 +41,7 @@
     <table class="ledger">
       <thead>
         <tr>
+          <th class="ledger__source" aria-label="Source"></th>
           <th>Filled at</th>
           <th class="num">Cost</th>
           <th class="num">L</th>
@@ -53,6 +54,13 @@
       <tbody>
         <% rows.each do |f| %>
           <tr>
+            <td class="ledger__source">
+              <% if f.gasbuddy_entry_uuid %>
+                <span class="source-glyph source-glyph--synced" title="Synced from GasBuddy">↻</span>
+              <% else %>
+                <span class="source-glyph source-glyph--manual" title="Added manually">✎</span>
+              <% end %>
+            </td>
             <td><%= fmt_date(f.filled_at) %></td>
             <td class="num"><%= fmt_money(f.total_cost) %></td>
             <td class="num"><%= format("%.2f", f.quantity_liters) %></td>

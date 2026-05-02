@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-02
+
+### Added
+
+- **Refresh garage** button next to the Vehicle linking heading. Pulls the GasBuddy vehicle list on demand instead of bundling it into every fillup sync, so the linking UI is stable across runs and isn't tied to the most-recent SyncRun's log JSON.
+- New `gasbuddy_remote_vehicles` table backs the linking section. Persists each remote vehicle's UUID, display name, ignored flag, and `last_seen_at`. Replaces the previous brittle approach of pulling the list out of `SyncLogEntry.detail` JSON, which made the linking UI disappear whenever the sync log was cleared.
+- **Ignore** option in the Vehicle linking dropdown. Marking a remote vehicle ignored makes the sync flow skip it permanently (vs unlinked, which is just "skip until linked"). Ignored rows are visually dimmed in the linking table.
+- Fillups ledger now shows a per-row provenance glyph: `↻` (teal) for fillups synced from GasBuddy, `✎` (soft gray) for ones added manually or via CSV import. Hover title spells it out.
+
+### Changed
+
+- The main sync (`POST /sync/run`) no longer fetches the GasBuddy garage on every run. It iterates linked, non-ignored vehicles only, and short-circuits with a friendly message if none exist. The garage is refreshed by the new explicit "Refresh garage" action.
+- `Sync` no longer carries the `Discovered remote vehicles` log entry that the UI used to scrape — that information lives in the new table.
+
 ## [0.8.7] - 2026-05-02
 
 ### Fixed

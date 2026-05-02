@@ -8,6 +8,7 @@ require_relative "lib/db"
 require_relative "lib/importer"
 require_relative "lib/calculator"
 require_relative "lib/gasbuddy/sync"
+require_relative "lib/gasbuddy/garage"
 require_relative "lib/scheduler"
 
 module GasMoney
@@ -314,15 +315,8 @@ module GasMoney
     helpers do
       def gasbuddy_setting = GasbuddySetting.current
 
-      def remote_vehicles_from_recent_run
-        run = SyncRun.recent.first
-        return [] unless run
-
-        log = run.sync_log_entries.where(message: "Discovered remote vehicles").order(:id).last
-        return [] unless log
-
-        parsed = log.parsed_detail
-        parsed && parsed["vehicles"] ? parsed["vehicles"] : []
+      def gasbuddy_remote_vehicles
+        GasbuddyRemoteVehicle.ordered.to_a
       end
 
       def fmt_relative(time_str)
@@ -342,7 +336,7 @@ module GasMoney
     get "/sync" do
       @setting = gasbuddy_setting
       @recent_runs = SyncRun.recent.includes(:sync_log_entries).limit(10)
-      @remote_vehicles = remote_vehicles_from_recent_run
+      @remote_vehicles = gasbuddy_remote_vehicles
       @local_vehicles = Vehicle.ordered
       erb :sync
     end
@@ -414,16 +408,42 @@ module GasMoney
         redirect "/sync"
       end
 
-      # Reset any vehicle that previously held this remote uuid (one-to-one).
+      remote_row = GasbuddyRemoteVehicle.find_by(uuid: remote_uuid)
+
+      # The dropdown encodes three states into a single field:
+      # "" = unlinked, "ignore" = explicitly ignored, anything else
+      # = local Vehicle id. Reset any prior link to keep the
+      # remote↔local relation one-to-one.
       Vehicle.where(gasbuddy_uuid: remote_uuid).update_all(gasbuddy_uuid: nil)
 
-      if target_id == ""
+      case target_id
+      when ""
+        remote_row&.update!(ignored: false)
         set_flash(:success, "Unlinked.")
+      when "ignore"
+        remote_row&.update!(ignored: true)
+        set_flash(:success, "Marked ignored — sync will skip this vehicle.")
       else
+        remote_row&.update!(ignored: false)
         Vehicle.where(id: target_id.to_i).update_all(gasbuddy_uuid: remote_uuid)
         set_flash(:success, "Vehicle linked.")
       end
       redirect "/sync"
+    end
+
+    post "/sync/garage/refresh" do
+      setting = gasbuddy_setting
+      unless setting.credentials_present?
+        set_flash(:error, "Save GasBuddy credentials first.")
+        redirect("/sync")
+      end
+
+      result = GasMoney::GasBuddy::Garage.refresh!
+      set_flash(:success, "Found #{result.total} #{result.total == 1 ? "vehicle" : "vehicles"} on GasBuddy (#{result.inserted} new).")
+      redirect("/sync")
+    rescue StandardError => e
+      set_flash(:error, "Couldn't refresh garage: #{e.message}")
+      redirect("/sync")
     end
 
     post "/sync/run" do
