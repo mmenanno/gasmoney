@@ -83,19 +83,25 @@
       <tbody>
         <% @remote_vehicles.each do |remote| %>
           <% linked = @local_vehicles.find { |v| v.gasbuddy_uuid == remote["uuid"] } %>
+          <% selected_label = linked ? linked.display_name : "— not linked —" %>
           <tr>
             <td><%= h(remote["name"]) %><br><span class="caption-mono"><%= h(remote["uuid"]) %></span></td>
             <td>
               <form action="/sync/vehicles/link" method="post" class="inline-form inline-form--link">
                 <input type="hidden" name="remote_uuid" value="<%= h(remote["uuid"]) %>">
-                <select name="vehicle_id">
-                  <option value="">— not linked —</option>
-                  <% @local_vehicles.each do |v| %>
-                    <option value="<%= v.id %>" <%= "selected" if linked && linked.id == v.id %>>
-                      <%= h(v.display_name) %>
-                    </option>
-                  <% end %>
-                </select>
+                <div class="select" data-select>
+                  <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="select__value"><%= h(selected_label) %></span>
+                    <span class="select__chevron" aria-hidden="true"></span>
+                  </button>
+                  <ul class="select__list" role="listbox" hidden>
+                    <li class="select__option<%= ' select__option--selected' unless linked %>" role="option" data-value="">— not linked —</li>
+                    <% @local_vehicles.each do |v| %>
+                      <li class="select__option<%= ' select__option--selected' if linked && linked.id == v.id %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
+                    <% end %>
+                  </ul>
+                  <input type="hidden" name="vehicle_id" value="<%= linked ? linked.id : '' %>">
+                </div>
                 <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
               </form>
             </td>

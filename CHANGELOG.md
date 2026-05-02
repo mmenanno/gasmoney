@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-05-02
+
+### Changed
+
+- **Vehicle linking** dropdowns now use the project's custom select component instead of the native `<select>`. The native dropdown was the last UI surface still rendering OS chrome (system chevron, OS-default option list) — replacing it with the existing `.select` / `data-select` pattern keeps the cross-page look consistent and picks up the project's tabular-mono option list, teal selected state, and keyboard nav for free. Drops the now-dead `.inline-form--link select` CSS rules and adds a small width/padding override for the linking-row context.
+
 ## [0.8.5] - 2026-05-02
 
 ### Added

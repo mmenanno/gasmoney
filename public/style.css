@@ -744,21 +744,17 @@ body.modal-open { overflow: hidden; }
 .ledger--linking td { padding: 14px 16px 14px 0; }
 .inline-form--link {
   display: inline-flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
-.inline-form--link select {
-  font-family: var(--mono);
-  font-size: 13px;
-  background: var(--bg);
-  color: var(--ink);
-  border: 1px solid var(--rule);
-  padding: 6px 10px;
-  outline: none;
-  min-width: 220px;
-  transition: border-color 100ms ease;
+.inline-form--link .select {
+  width: 240px;
 }
-.inline-form--link select:focus { border-color: var(--accent); }
+.inline-form--link .select__button {
+  font-size: 13px;
+  padding: 7px 10px;
+  background: var(--bg);
+}
 
 /* Sync activity — borrows the dashboard "tile" DNA but renders each
    run as a horizontal strip with a colored left rail. The rail color
