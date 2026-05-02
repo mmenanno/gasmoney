@@ -53,13 +53,24 @@ a:hover { color: var(--accent); }
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--serif);
   font-weight: 500;
   font-size: 28px;
   letter-spacing: -0.01em;
   font-variation-settings: "opsz" 80;
 }
+.brand__mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
 .brand:hover { color: var(--ink); }
+.brand:hover .brand__mark { opacity: 0.92; }
 
 .nav-link {
   font-family: var(--mono);

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-02
+
+### Added
+
+- Inline app icon next to the "Gas Money" wordmark in the topbar (`<img src="/favicon.svg">`). The same SVG was already wired as the browser-tab favicon and apple-touch icon since 0.1.0; this exposes it inside the page chrome too so it's visible without inspecting the tab bar.
+
 ## [0.1.2] - 2026-05-02
 
 ### Changed
