@@ -43,3 +43,7 @@ Thumbs.db
 # Test runner caches
 /coverage/
 .byebug_history
+
+# Playwright MCP scratch dir (accessibility-tree snapshots and screenshots
+# from interactive testing sessions)
+/.playwright-mcp/

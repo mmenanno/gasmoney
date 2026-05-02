@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-05-02
+
+### Changed
+
+- Scrubbed `.playwright-mcp/` snapshot YAML files from the entire git history via `git filter-repo --path .playwright-mcp --invert-paths`. They were committed by accident in 0.5.0 and then untracked in 0.5.1, but the binary content lived on as unreachable blobs reachable through old refs. This release rewrites the affected commits (force-push) so the files are gone for good. Existing clones will need to re-clone or `git fetch origin && git reset --hard origin/main` to pick up the rewritten history. All commits remain SSH-signed.
+
+## [0.5.1] - 2026-05-02
+
+### Changed
+
+- `.gitignore` now excludes `.playwright-mcp/`, the scratch directory the Playwright MCP integration writes accessibility-tree snapshots to during interactive testing sessions. The three stray snapshot YAMLs that landed in 0.5.0 are removed from tracking.
+
 ## [0.5.0] - 2026-05-02
 
 ### Added
