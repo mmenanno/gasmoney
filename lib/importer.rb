@@ -42,7 +42,6 @@ module GasMoney
     end
 
     def self.build_attrs(row, vehicle_id)
-      l_per_100km, partial_fill = parse_fuel_economy(row)
       {
         vehicle_id: vehicle_id,
         filled_at: Time.parse("#{row["Date (UTC)"]} UTC").utc.iso8601,
@@ -50,12 +49,7 @@ module GasMoney
         quantity_liters: Float(row["Quantity"]),
         unit_price_cents: Float(row["Unit Price"]),
         odometer: parse_int(row["Odometer"]),
-        l_per_100km: l_per_100km,
-        partial_fill: partial_fill,
-        fuel_type: row["Fuel Type"],
-        location: presence(row["Location"]),
-        city: presence(row["City"]),
-        notes: presence(row["Notes"]),
+        l_per_100km: parse_fuel_economy(row),
       }
     end
 
@@ -73,24 +67,24 @@ module GasMoney
       CSV.parse(content, **opts)
     end
 
+    # Returns the L/100km reading from a GasBuddy CSV row, or nil for
+    # partial fills (CSV value `missingPrevious`) and any unit other
+    # than `L/100km`. Callers that previously checked a `partial_fill`
+    # flag can use `l_per_100km IS NULL` instead.
     def self.parse_fuel_economy(row)
       raw = row["Fuel Economy"].to_s.strip
-      return [nil, 1] if raw.empty? || raw == "missingPrevious"
-      return [nil, 1] unless row["Fuel Economy Unit"].to_s.strip == "L/100km"
+      return if raw.empty? || raw == "missingPrevious"
+      return unless row["Fuel Economy Unit"].to_s.strip == "L/100km"
 
-      [Float(raw), 0]
+      Float(raw)
     end
 
     def self.parse_int(value)
-      return if blank?(value)
+      return if value.nil? || value.to_s.strip.empty?
 
       Integer(value.to_s.strip)
     rescue ArgumentError
       nil
     end
-
-    def self.presence(value) = blank?(value) ? nil : value
-
-    def self.blank?(value) = value.nil? || value.to_s.strip.empty?
   end
 end

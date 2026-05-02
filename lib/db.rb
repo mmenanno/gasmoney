@@ -49,12 +49,8 @@ module GasMoney
           t.float(:quantity_liters,  null: false)
           t.float(:unit_price_cents, null: false)
           t.integer(:odometer)
+          # `l_per_100km IS NULL` doubles as the "partial fill" signal.
           t.float(:l_per_100km)
-          t.integer(:partial_fill, null: false, default: 0)
-          t.string(:fuel_type)
-          t.string(:location)
-          t.string(:city)
-          t.string(:notes)
           t.index(
             [:vehicle_id, :filled_at, :odometer, :quantity_liters],
             unique: true,
@@ -109,7 +105,18 @@ module GasMoney
         conn.remove_column(:vehicles, col) if conn.column_exists?(:vehicles, col)
       end
 
+      # Drop fillup columns the app never reads after writing. Surfaced
+      # by an audit pass: `partial_fill` is redundant with `l_per_100km
+      # IS NULL` (which is what every consumer was already checking),
+      # and `fuel_type`/`location`/`city`/`notes` were imported from the
+      # CSV but never displayed back. Existing data in those columns is
+      # discarded — nothing in the app reads it.
+      [:partial_fill, :fuel_type, :location, :city, :notes].each do |col|
+        conn.remove_column(:fillups, col) if conn.column_exists?(:fillups, col)
+      end
+
       Vehicle.reset_column_information
+      Fillup.reset_column_information
     end
   end
 end

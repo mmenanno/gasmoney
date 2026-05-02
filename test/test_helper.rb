@@ -72,7 +72,6 @@ module ActiveSupport
         unit_price_cents: 125.0,
         odometer: 50_000,
         l_per_100km: 9.0,
-        partial_fill: 0,
       }
       GasMoney::Fillup.create!(defaults.merge(attrs).merge(vehicle: vehicle))
     end

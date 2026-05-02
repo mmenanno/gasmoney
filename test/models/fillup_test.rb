@@ -9,7 +9,7 @@ class FillupTest < ActiveSupport::TestCase
 
   test "with_economy excludes rows with nil l_per_100km" do
     create_fillup(vehicle: @vehicle, filled_at: "2026-01-01T00:00:00Z", l_per_100km: 9.0, odometer: 1)
-    create_fillup(vehicle: @vehicle, filled_at: "2026-01-02T00:00:00Z", l_per_100km: nil, partial_fill: 1, odometer: 2)
+    create_fillup(vehicle: @vehicle, filled_at: "2026-01-02T00:00:00Z", l_per_100km: nil, odometer: 2)
 
     assert_equal(1, GasMoney::Fillup.with_economy.count)
   end
@@ -47,7 +47,7 @@ class FillupTest < ActiveSupport::TestCase
   end
 
   test "cost_per_km is nil when l_per_100km is missing" do
-    fillup = create_fillup(vehicle: @vehicle, l_per_100km: nil, partial_fill: 1)
+    fillup = create_fillup(vehicle: @vehicle, l_per_100km: nil)
 
     assert_nil(fillup.cost_per_km)
   end

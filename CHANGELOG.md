@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-02
+
+### Removed
+
+- Dropped five `fillups` columns the app never read after writing: `partial_fill`, `fuel_type`, `location`, `city`, `notes`. The `migrate!` step in `lib/db.rb` removes them from existing databases on next boot; SQLite handles the table rebuild via ActiveRecord's `remove_column`. Fillup row counts are unchanged. `partial_fill` was redundant with `l_per_100km IS NULL` (which is what every consumer was already checking); the others were imported from the GasBuddy CSV but never surfaced anywhere.
+- Removed the "Location" field from the manual fillup form and the matching `presence_param` helper from `app.rb`.
+
+### Changed
+
+- `Importer.parse_fuel_economy` now returns a single nullable Float instead of a `[Float?, partial_fill_int]` tuple. Callers that previously cared about the `partial_fill` flag use `l_per_100km.nil?` instead, which was already the canonical check inside the calculator.
+
 ## [0.3.0] - 2026-05-02
 
 ### Added

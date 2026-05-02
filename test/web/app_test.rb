@@ -143,7 +143,6 @@ class AppTest < ActiveSupport::TestCase
 
     assert_equal(vehicle.id, fillup.vehicle_id)
     assert_in_delta(9.0, fillup.l_per_100km)
-    assert_equal(0, fillup.partial_fill)
   end
 
   test "POST /vehicles/:id/fillups treats blank l_per_100km as a partial fill" do
@@ -159,7 +158,6 @@ class AppTest < ActiveSupport::TestCase
     fillup = GasMoney::Fillup.last
 
     assert_nil(fillup.l_per_100km)
-    assert_equal(1, fillup.partial_fill)
   end
 
   test "POST /fillups/:id/delete removes the fillup" do

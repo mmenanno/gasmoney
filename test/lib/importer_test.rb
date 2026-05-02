@@ -36,7 +36,6 @@ class ImporterTest < ActiveSupport::TestCase
     assert_in_delta(10.3,    fillup.l_per_100km,      0.001)
     assert_in_delta(162.9,   fillup.unit_price_cents, 0.001)
     assert_in_delta(64.733,  fillup.quantity_liters,  0.001)
-    assert_equal(0, fillup.partial_fill)
   end
 
   test "ignores the CSV's Vehicle column entirely" do
@@ -52,7 +51,7 @@ class ImporterTest < ActiveSupport::TestCase
     assert_equal(@vehicle.id, GasMoney::Fillup.first.vehicle_id)
   end
 
-  test "treats missingPrevious fuel economy as a partial fill with nil l_per_100km" do
+  test "treats missingPrevious fuel economy as a partial fill (nil l_per_100km)" do
     csv = <<~CSV
       #{HEADER}
       "2026-04-04 18:57:39","Pump A","","","","","","52.99","CAD","regular_gas","29.955","liters","X","176.9",110988,"missingPrevious","","Yes",
@@ -62,7 +61,6 @@ class ImporterTest < ActiveSupport::TestCase
     fillup = GasMoney::Fillup.first
 
     assert_nil(fillup.l_per_100km)
-    assert_equal(1, fillup.partial_fill)
   end
 
   test "dedups on (vehicle_id, filled_at, odometer, quantity_liters)" do

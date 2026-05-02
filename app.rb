@@ -115,17 +115,7 @@ module GasMoney
           unit_price_cents: Float(form["unit_price_cents"]),
           odometer: form["odometer"].to_s.strip.empty? ? nil : Integer(form["odometer"]),
           l_per_100km: form["l_per_100km"].to_s.strip.empty? ? nil : Float(form["l_per_100km"]),
-          partial_fill: form["l_per_100km"].to_s.strip.empty? ? 1 : 0,
-          fuel_type: presence_param(form["fuel_type"]),
-          location: presence_param(form["location"]),
-          city: presence_param(form["city"]),
-          notes: presence_param(form["notes"]),
         }
-      end
-
-      def presence_param(value)
-        s = value.to_s.strip
-        s.empty? ? nil : s
       end
     end
 

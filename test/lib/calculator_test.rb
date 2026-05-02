@@ -115,7 +115,6 @@ class CalculatorTest < ActiveSupport::TestCase
       unit_price_cents: 100.0,
       odometer:         1,
       l_per_100km:      nil,
-      partial_fill:     1,
     )
     create_fillup(
       vehicle:          @vehicle,
@@ -154,7 +153,6 @@ class CalculatorTest < ActiveSupport::TestCase
       unit_price_cents: 110.0,
       odometer:         2,
       l_per_100km:      nil,
-      partial_fill:     1,
     )
     create_fillup(
       vehicle:          @vehicle,
