@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-05-02
+
+### Fixed
+
+- Login submit click is now scoped to the form that contains the password field. The login page renders two `<form>` elements — the password login form (button "actions.login") and a "magic link" passwordless form (button "magicLinkButton.emailLink") — and both buttons match `button[type="submit"]`. The bare CSS pick was relying on DOM order, which is fragile under React hydration; if the magic-link button rendered first the click would silently send a login-link email and stay on `/login`, indistinguishable from a hung browser. Submit now finds the password input, walks up to its parent `<form>`, and clicks the submit button inside that form specifically.
+
+### Added
+
+- `Browser#wait_for_post_login` now distinguishes "credentials rejected" from generic post-submit hangs. GasBuddy silently re-renders the same login form on a bad password (no error banner, no toast, just the form again), which previously surfaced as `No post-login navigation within 60s` and looked like an automation failure. After a timeout, we now check whether a login form is still present on the page — if so the error message tells the operator to update credentials on `/sync` rather than diagnose chromium.
+
 ## [0.8.3] - 2026-05-02
 
 ### Fixed

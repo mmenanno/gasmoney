@@ -272,7 +272,27 @@ module GasMoney
       end
 
       def click_submit(page)
-        page.at_css('button[type="submit"]').click
+        # The login page renders TWO forms: the password login (button
+        # text "actions.login") and a passwordless "email me a login
+        # link" form (button text "magicLinkButton.emailLink"). Both
+        # buttons are `button[type="submit"]`, so a bare CSS pick can
+        # silently grab the wrong one — clicking magic-link sends an
+        # email and stays on /login, which surfaces as a post-login
+        # nav timeout. Scope the click to the form that actually
+        # contains the password field.
+        clicked = page.evaluate(<<~JS)
+          (() => {
+            const pw = document.querySelector('input[name="password"], input[type="password"]');
+            if (!pw) return false;
+            const form = pw.closest('form');
+            if (!form) return false;
+            const btn = form.querySelector('button[type="submit"]');
+            if (!btn) return false;
+            btn.click();
+            return true;
+          })()
+        JS
+        raise LoginFailed, "Couldn't locate login submit button inside password form" unless clicked
       end
 
       def first_match(page, selectors)
@@ -293,11 +313,33 @@ module GasMoney
 
           if Time.now > deadline
             log_page_state(page, "post-login timeout")
+            # Wrong credentials silently re-render the same login form
+            # with no error banner — distinguish that case so operators
+            # update creds in /sync rather than chasing a chromium ghost.
+            if login_form_still_present?(page)
+              raise LoginFailed,
+                "GasBuddy rejected the credentials (login form re-rendered with no error). " \
+                "Update the username/password on /sync and try again."
+            end
             raise LoginFailed, "No post-login navigation within #{LOGIN_NAV_TIMEOUT}s (still on #{url})"
           end
 
           sleep 0.25
         end
+      end
+
+      def login_form_still_present?(page)
+        result = page.evaluate(<<~JS)
+          (() => {
+            const pw = document.querySelector('input[name="password"], input[type="password"]');
+            if (!pw) return false;
+            const form = pw.closest('form');
+            return Boolean(form && form.querySelector('button[type="submit"]'));
+          })()
+        JS
+        result == true
+      rescue Ferrum::Error, StandardError
+        false
       end
 
       def extract_csrf(page)
