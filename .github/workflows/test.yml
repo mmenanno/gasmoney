@@ -1,0 +1,29 @@
+name: test
+
+# Reusable workflow. CI's main pipeline and the build job both `uses:` this
+# so the test suite has to pass before any image is built or published.
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  minitest:
+    name: minitest
+    runs-on: ubuntu-latest
+    # Match the 4 vCPUs that GitHub Actions Linux runners actually expose.
+    # Etc.nprocessors underreports as 2, so :number_of_processors would
+    # undershoot.
+    env:
+      MINITEST_WORKERS: 4
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - run: bundle exec rake test

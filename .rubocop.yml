@@ -1,0 +1,37 @@
+plugins:
+  - rubocop-mmenanno
+  - rubocop-performance
+  - rubocop-minitest
+  - rubocop-thread_safety
+  - rubocop-rake
+
+AllCops:
+  NewCops: enable
+  Exclude:
+    - "vendor/**/*"
+    - "tmp/**/*"
+    - "db/schema.rb"
+
+# Sinatra DSL converts `get/post "/path" do ... end` blocks into per-request
+# instance methods on Sinatra::Base, where `@foo` is request-scoped — not
+# class-scoped. Same shape applies to `setup do ... end` in
+# ActiveSupport::TestCase. Static analysis can't tell the difference, so
+# scope the cop off for both file trees.
+ThreadSafety/MutableClassInstanceVariable:
+  Exclude:
+    - "app.rb"
+    - "test/**/*.rb"
+
+# `def self.foo` is the convention used throughout this codebase for module-
+# level functions (lib/db.rb, lib/importer.rb, lib/calculator.rb). The
+# `class << self` form is more idiomatic in Rails models but heavier than
+# warranted for these single-purpose service modules.
+Style/ClassMethodsDefinitions:
+  Enabled: false
+
+# Calculator and importer tests assert several derived values from one call
+# (the cost, the litres, the unit price, the chosen calc method). Splitting
+# into 3-assertion tests would obscure that the values are produced by the
+# same operation under test.
+Minitest/MultipleAssertions:
+  Max: 8

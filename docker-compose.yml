@@ -1,0 +1,15 @@
+services:
+  gasmoney:
+    image: ghcr.io/mmenanno/gasmoney:latest
+    container_name: gasmoney
+    restart: unless-stopped
+    ports:
+      - "9292:9292"
+    volumes:
+      - ./state:/app/state
+    # Optional. Defaults to 1000:1000; override to align with your host's
+    # appdata ownership convention.
+    # environment:
+    #   PUID: "1000"
+    #   PGID: "1000"
+    #   UMASK: "022"

@@ -1,0 +1,130 @@
+# frozen_string_literal: true
+
+require "test_helper"
+require "rack/test"
+require "app"
+
+class AppTest < ActiveSupport::TestCase
+  include Rack::Test::Methods
+
+  def app
+    @app ||= begin
+      GasMoney::App.set(:host_authorization, { permitted_hosts: [] })
+      GasMoney::App
+    end
+  end
+
+  test "GET /health returns 200 ok" do
+    get "/health"
+
+    assert_equal(200, last_response.status)
+    assert_match(/"status":"ok"/, last_response.body)
+  end
+
+  test "GET / on a fresh DB shows the no-vehicles welcome state" do
+    get "/"
+
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, "adding a vehicle")
+  end
+
+  test "POST /vehicles creates a vehicle and pins it when requested" do
+    assert_difference("GasMoney::Vehicle.count", 1) do
+      post "/vehicles", { display_name: "Test Sedan", pinned: "1" }
+    end
+    vehicle = GasMoney::Vehicle.last
+
+    assert_equal("Test Sedan", vehicle.display_name)
+    assert(vehicle.pinned)
+  end
+
+  test "POST /vehicles/:id/toggle_pin flips the pinned flag" do
+    vehicle = create_vehicle(pinned: false)
+
+    post "/vehicles/#{vehicle.id}/toggle_pin"
+
+    assert(vehicle.reload.pinned)
+
+    post "/vehicles/#{vehicle.id}/toggle_pin"
+
+    refute(vehicle.reload.pinned)
+  end
+
+  test "POST /vehicles/:id/delete removes the vehicle and its dependents" do
+    vehicle = create_vehicle
+    create_fillup(vehicle: vehicle)
+
+    post "/vehicles/#{vehicle.id}/delete"
+
+    assert_nil(GasMoney::Vehicle.find_by(id: vehicle.id))
+    assert_equal(0, GasMoney::Fillup.count)
+  end
+
+  test "POST /calculate runs an estimate and shows it on the dashboard" do
+    vehicle = create_vehicle(pinned: true)
+    create_fillup(
+      vehicle:          vehicle,
+      filled_at:        "2026-04-17T16:00:04Z",
+      unit_price_cents: 162.9,
+      l_per_100km:      10.3,
+    )
+
+    post "/calculate", { vehicle_id: vehicle.id, trip_date: "2026-04-17", kilometers: "250" }
+
+    assert_predicate(last_response, :redirect?)
+    follow_redirect!
+
+    assert_includes(last_response.body, "$41.95")
+    assert_includes(last_response.body, "exact match")
+  end
+
+  test "POST /calculate with no fillups flashes a friendly error" do
+    vehicle = create_vehicle
+
+    post "/calculate", { vehicle_id: vehicle.id, trip_date: "2026-04-17", kilometers: "100" }
+    follow_redirect!
+
+    assert_includes(last_response.body, "no fillups for vehicle")
+  end
+
+  test "POST /import requires a vehicle selection" do
+    create_vehicle # so the import page renders the form
+    file = Rack::Test::UploadedFile.new(StringIO.new(""), "text/csv", original_filename: "x.csv")
+
+    post "/import", { file: file }
+
+    assert_predicate(last_response, :redirect?)
+    follow_redirect!
+
+    assert_includes(last_response.body, "Pick the vehicle")
+  end
+
+  test "POST /saved_trips creates a saved trip" do
+    assert_difference("GasMoney::SavedTrip.count", 1) do
+      post "/saved_trips", { name: "Commute", base_kilometers: "30", round_trip: "1" }
+    end
+    trip = GasMoney::SavedTrip.last
+
+    assert_equal("Commute", trip.name)
+    assert_equal(1,         trip.round_trip)
+  end
+
+  test "POST /saved_trips/:id/delete removes the saved trip" do
+    trip = GasMoney::SavedTrip.create!(name: "Commute", base_kilometers: 30)
+
+    post "/saved_trips/#{trip.id}/delete"
+
+    assert_nil(GasMoney::SavedTrip.find_by(id: trip.id))
+  end
+
+  test "GET /?trip=ID prefills the calculator with the saved trip" do
+    create_vehicle
+    trip = GasMoney::SavedTrip.create!(name: "Errands", base_kilometers: 42, round_trip: 1)
+
+    get "/", { trip: trip.id }
+
+    assert_includes(last_response.body, "Errands")
+    assert_includes(last_response.body, 'value="42"')
+    assert_includes(last_response.body, "checked")
+  end
+end

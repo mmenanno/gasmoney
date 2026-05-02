@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gas Money</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/icons/icon-256.png">
+  <script src="/select.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a href="/" class="brand">Gas Money</a>
+      <nav class="nav">
+        <a href="/vehicles" class="nav-link">Vehicles</a>
+        <a href="/saved_trips" class="nav-link">Saved trips</a>
+        <a href="/import" class="nav-link">Import logs</a>
+      </nav>
+    </header>
+
+    <% if (msg = flash) %>
+      <div class="flash flash--<%= h(msg[:kind]) %>"><%= h(msg[:message]) %></div>
+    <% end %>
+
+    <%= yield %>
+
+    <footer class="footer">
+      <span>local SQLite · GasBuddy CSV imports · <a href="https://github.com/mmenanno/gasmoney" class="link-soft">github.com/mmenanno/gasmoney</a></span>
+    </footer>
+  </main>
+</body>
+</html>
