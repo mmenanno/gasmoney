@@ -1,0 +1,35 @@
+<section class="form-section">
+  <h3 class="section-heading">Import a GasBuddy CSV export</h3>
+  <p class="lede">
+    Pick the vehicle these logs belong to. Re-importing the same file is safe — duplicate fillups are skipped automatically.
+  </p>
+
+  <% if vehicles.any? %>
+    <form action="/import" method="post" enctype="multipart/form-data" class="form">
+      <div class="field">
+        <span class="field__label">Vehicle</span>
+        <div class="select" data-select>
+          <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="select__value"><%= h(vehicles.first.display_name) %></span>
+            <span class="select__chevron" aria-hidden="true"></span>
+          </button>
+          <ul class="select__list" role="listbox" hidden>
+            <% vehicles.each_with_index do |v, i| %>
+              <li class="select__option<%= ' select__option--selected' if i == 0 %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
+            <% end %>
+          </ul>
+          <input type="hidden" name="vehicle_id" value="<%= vehicles.first.id %>" required>
+        </div>
+      </div>
+      <label class="field">
+        <span class="field__label">CSV file</span>
+        <input type="file" name="file" accept=".csv" required>
+      </label>
+      <button type="submit" class="btn btn--primary">Import</button>
+    </form>
+  <% else %>
+    <p class="empty">Add a <a href="/vehicles" class="link-accent">vehicle</a> first.</p>
+  <% end %>
+
+  <p class="back"><a href="/" class="nav-link">← back to dashboard</a></p>
+</section>

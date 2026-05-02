@@ -1,0 +1,63 @@
+# Git + VCS
+.git
+.github
+.githooks
+
+# Editor / LSP caches
+.vscode
+.idea
+.ruby-lsp
+.DS_Store
+
+# Ruby tooling / bundler
+.bundle
+/vendor/bundle
+.rubocop.yml
+
+# Database files belong on a host-mounted volume, not baked into the image
+/db/*.sqlite3
+/db/*.sqlite3-journal
+/db/*.sqlite3-shm
+/db/*.sqlite3-wal
+/state
+
+# Logs / tmp
+/log
+/tmp
+
+# Personal fuel logs — never end up in the published image
+/exported_logs
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Tests don't run in the runtime image
+/test
+
+# Dev-only docs and notes
+/coverage
+/CLAUDE.md
+/CHANGELOG.md
+/README.md
+/SECURITY.md
+/CONTRIBUTING.md
+
+# Dev-only bin/ scripts (bin/start + bin/init are the only entrypoints
+# the container actually invokes; the rest run on the workstation).
+/bin/build-icons
+
+# icon.svg is the ImageMagick source for bin/build-icons — a dev-only
+# helper that runs on the workstation, not in the image. The pre-rendered
+# PNGs under public/ ship; the source SVG and dev-only larger PNG sizes
+# under app/assets/icons/ stay out.
+/app/assets
+
+# Ad-hoc screenshots from local Playwright runs
+/gm_*.png
+/.playwright-mcp
+
+# Dockerfile and Rakefile themselves are not needed at runtime
+/Dockerfile
+/Rakefile

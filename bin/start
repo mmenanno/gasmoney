@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+# Boots Puma with Sinatra. PORT and RACK_ENV are honoured if set; the
+# Dockerfile's HEALTHCHECK pings the port via the same env var.
+exec bundle exec puma -e "${RACK_ENV:-production}" -b "tcp://0.0.0.0:${PORT:-9292}"

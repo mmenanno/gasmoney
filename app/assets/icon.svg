@@ -1,0 +1,23 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gas Money">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a2329"/>
+      <stop offset="100%" stop-color="#0c1115"/>
+    </linearGradient>
+    <linearGradient id="glow" cx="0.18" cy="0" r="0.9">
+      <stop offset="0%" stop-color="#7CC4B8" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#7CC4B8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="200" ry="200" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="200" ry="200" fill="url(#glow)"/>
+
+  <!-- Three horizontal bars: a fuel-tank gauge dropping from full to empty.
+       Decreasing width, decreasing opacity. Reads as readout/data UI. -->
+  <g fill="#7CC4B8">
+    <rect x="232" y="356" width="560" height="56" rx="6"/>
+    <rect x="232" y="476" width="408" height="56" rx="6" opacity="0.78"/>
+    <rect x="232" y="596" width="248" height="56" rx="6" opacity="0.52"/>
+  </g>
+</svg>

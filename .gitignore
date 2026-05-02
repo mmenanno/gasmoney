@@ -1,0 +1,45 @@
+.DS_Store
+**/.DS_Store
+
+# Ruby / Bundler
+/.bundle/
+/vendor/bundle/
+*.gem
+*.rbc
+
+# SQLite
+/db/*.sqlite3
+/db/*.sqlite3-journal
+/db/*.sqlite3-wal
+/db/*.sqlite3-shm
+/state/*.sqlite3
+/state/*.sqlite3-*
+
+# Logs / tmp
+/log/
+/tmp/
+*.log
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+
+# Env
+.env
+.env.local
+.envrc
+
+# Personal fuel logs — never commit your own GasBuddy exports
+/exported_logs/
+
+# Generated icon assets — built from app/assets/icon.svg via bin/build-icons
+/app/assets/icons/icon-128.png
+/app/assets/icons/icon-256.png
+/app/assets/icons/icon-512.png
+
+# Test runner caches
+/coverage/
+.byebug_history

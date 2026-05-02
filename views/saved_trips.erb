@@ -1,0 +1,54 @@
+<section class="form-section">
+  <h3 class="section-heading">Saved trips</h3>
+  <p class="lede">Saved trips appear in the dashboard picker so you can re-run them for any vehicle or date.</p>
+
+  <form action="/saved_trips" method="post" class="form">
+    <label class="field">
+      <span class="field__label">Name</span>
+      <input type="text" name="name" maxlength="80" placeholder="commute, weekend cottage, etc." required>
+    </label>
+    <label class="field">
+      <span class="field__label">Base kilometres</span>
+      <input type="number" name="base_kilometers" min="0" step="0.1" placeholder="one-way distance" required>
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="round_trip" value="1">
+      <span>Round trip (double the base kilometres when used)</span>
+    </label>
+    <button type="submit" class="btn btn--primary">Save trip</button>
+  </form>
+</section>
+
+<section class="history">
+  <h3 class="section-heading">All saved trips</h3>
+  <% trips = saved_trips %>
+  <% if trips.empty? %>
+    <p class="empty">No saved trips yet.</p>
+  <% else %>
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="num">Base km</th>
+          <th>Round trip</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% trips.each do |t| %>
+          <tr>
+            <td><%= h(t["name"]) %></td>
+            <td class="num"><%= format("%g", t["base_kilometers"]) %></td>
+            <td><%= t["round_trip"] == 1 ? "yes" : "no" %></td>
+            <td class="num">
+              <form action="/saved_trips/<%= t["id"] %>/delete" method="post" class="inline-form">
+                <button type="submit" class="btn-delete" aria-label="Delete">×</button>
+              </form>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+  <p class="back"><a href="/" class="nav-link">← back to dashboard</a></p>
+</section>
