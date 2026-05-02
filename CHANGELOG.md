@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-05-02
+
+### Changed
+
+- Main nav items get a stronger persistent boundary so they read as buttons even on pages with no active link (e.g., the dashboard at `/`). The previous dotted underline treatment was too subtle to register without an active page anchoring the row — every item now has a 1px low-contrast box at rest, sharp corners (matches the rest of the app's no-rounded-chrome aesthetic). Hover bumps the border + text to teal; active page adds a faint teal surface tint on top.
+
 ## [0.10.1] - 2026-05-02
 
 ### Changed

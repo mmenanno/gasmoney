@@ -188,29 +188,31 @@ body.nav-open .nav-toggle__line:nth-child(3) {
   .nav-link:hover { color: var(--accent); }
 }
 
-/* Nav links read like prose without an affordance, so each one gets
-   a 1px dotted underline at rest (using --rule, low contrast) plus
-   a tiny vertical padding so it has a real hit area. Hover and the
-   currently-active page replace the dotted underline with a solid
-   teal one — same shape, stronger material — so the transition
-   feels like the link "settling in" rather than morphing. */
+/* Nav items read like prose without a persistent boundary. A 1px
+   box per link reads unambiguously as "menu button" the moment the
+   page loads — no need to hover to discover affordance, no need
+   for an active page to anchor the row. Sharp corners match the
+   rest of the app (no rounded chrome anywhere else). Active page
+   gets a faint teal surface tint on top of the teal border so
+   "you are here" registers without being loud. */
 .nav-link {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink-soft);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: lowercase;
-  padding: 4px 0;
-  border-bottom: 1px dotted var(--rule);
-  transition: color 100ms ease, border-color 100ms ease, border-style 0ms;
+  padding: 6px 11px;
+  border: 1px solid rgba(138, 139, 142, 0.22);
+  transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
 }
 .nav-link:hover {
   color: var(--accent);
-  border-bottom: 1px solid var(--accent);
+  border-color: var(--accent);
 }
 .nav-link--active {
   color: var(--ink);
-  border-bottom: 1px solid var(--accent);
+  border-color: var(--accent);
+  background: rgba(124, 196, 184, 0.08);
 }
 .nav-link--active:hover { color: var(--accent); }
 
@@ -464,7 +466,7 @@ body.nav-open .nav-toggle__line:nth-child(3) {
 .link-accent { color: var(--accent); }
 .link-accent:hover { color: #a3d6ce; }
 
-.nav { display: flex; gap: 18px; align-items: baseline; }
+.nav { display: flex; gap: 8px; align-items: center; }
 
 /* Saved-trip picker block — same width as the calc form */
 .form--picker { margin-bottom: 22px; }
