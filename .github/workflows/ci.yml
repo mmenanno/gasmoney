@@ -83,13 +83,15 @@ jobs:
           fi
 
           # Release-irrelevant paths: markdown, LICENSE, anything under
-          # .github/. None of these end up in the released container image.
+          # .github/ or .githooks/. None of these end up in the released
+          # container image. Keep this list in sync with .githooks/pre-push.
           release_relevant=$(printf '%s\n' "$changed" \
             | grep -vE '\.md$' \
             | grep -vx 'LICENSE' \
-            | grep -vE '^\.github/' || true)
+            | grep -vE '^\.github/' \
+            | grep -vE '^\.githooks/' || true)
           if [[ -z "$release_relevant" ]]; then
-            echo "Release-irrelevant change (docs or .github/); VERSION bump not required."
+            echo "Release-irrelevant change (docs, .github/, or .githooks/); VERSION bump not required."
             echo "skip_build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi

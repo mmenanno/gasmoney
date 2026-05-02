@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-02
+
+### Added
+
+- `.githooks/pre-push` blocks pushes to `main` when `VERSION` hasn't changed relative to the remote tip, mirroring the same release-irrelevant exemptions (`*.md`, `LICENSE`, `.github/**`, `.githooks/**`) that CI's `version-bump-check` job uses. `bin/setup-hooks` activates the hook via `git config core.hooksPath .githooks`.
+
+### Changed
+
+- `lint.yml` and `test.yml` are now `workflow_call`-only; `pull_request` and `push` triggers were removed because they fired alongside the `uses:` invocation from `ci.yml` and produced duplicate "lint" and "test" check runs in the PR UI.
+- `version-bump-check` now exempts paths under `.githooks/` so a hook-only push doesn't demand a `VERSION` bump (kept in sync with the pre-push hook's filter).
+
 ## [0.1.0] - 2026-05-02
 
 ### Added

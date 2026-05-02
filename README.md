@@ -91,7 +91,12 @@ Process-parallel via `ActiveSupport::TestCase`'s `parallelize(workers: :number_o
 
 - `VERSION` is the single source of truth for the released version.
 - Bump `VERSION` and add a `## [<new>]` section to `CHANGELOG.md` in the same PR.
-- CI's **VERSION bump** check enforces this for every release-relevant change (docs and `.github/**` are exempt).
+- CI's **VERSION bump** check enforces this for every release-relevant change (`*.md`, `LICENSE`, `.github/**`, `.githooks/**` are exempt).
+- A local `pre-push` hook mirrors the same gate so you fail fast on your machine instead of waiting for CI. Activate it once per checkout:
+  ```bash
+  bin/setup-hooks
+  ```
+  This runs `git config core.hooksPath .githooks` and is safe to re-run.
 - On merge to `main`, CI builds multi-arch images, pushes them to GHCR (`ghcr.io/mmenanno/gasmoney`), tags the git commit `v<version>`, and creates a GitHub Release whose body is the matching CHANGELOG section.
 
 ## License
