@@ -477,6 +477,19 @@ module GasMoney
       redirect "/sync"
     end
 
+    post "/sync/backfill" do
+      setting = gasbuddy_setting
+
+      unless setting.credentials_present?
+        set_flash(:error, "Save GasBuddy credentials first.")
+        redirect "/sync"
+      end
+
+      Scheduler.run_now_async(trigger: "manual", mode: :backfill)
+      set_flash(:success, "Backfill started — pulling all prior years' fillups.")
+      redirect "/sync"
+    end
+
     post "/sync/runs/clear" do
       # Clears the entire sync activity ledger, but only the rows
       # that have already finished. A live sync (running status) is

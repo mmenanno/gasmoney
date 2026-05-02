@@ -4,12 +4,23 @@
 <section class="sync-status">
   <div class="sync-status__head">
     <h2 class="section-heading">GasBuddy auto-sync</h2>
-    <form action="/sync/run" method="post" class="inline-form">
-      <button type="submit" class="btn btn--primary"
-              <%= "disabled" unless @setting.credentials_present? %>>
-        Sync now
-      </button>
-    </form>
+    <div class="sync-status__actions">
+      <form action="/sync/backfill" method="post" class="inline-form"
+            data-confirm="Backfill every prior year's fillups for each linked GasBuddy vehicle? This walks year-by-year from now back to <%= GasMoney::GasBuddy::Sync::BACKFILL_OLDEST_YEAR %> and can take a few minutes."
+            data-confirm-action="Backfill"
+            data-confirm-tone="default">
+        <button type="submit" class="btn btn--ghost"
+                <%= "disabled" unless @setting.credentials_present? %>>
+          Backfill
+        </button>
+      </form>
+      <form action="/sync/run" method="post" class="inline-form">
+        <button type="submit" class="btn btn--primary"
+                <%= "disabled" unless @setting.credentials_present? %>>
+          Sync now
+        </button>
+      </form>
+    </div>
   </div>
 
   <div class="sync-status__readouts">
@@ -103,42 +114,44 @@
             <tr>
               <td><%= h(remote.display_name) %><br><span class="caption-mono"><%= h(remote.uuid) %></span></td>
               <td data-link-cell>
-                <% if linked %>
-                  <div class="link-summary" data-link-summary>
-                    <span class="link-summary__arrow" aria-hidden="true">→</span>
-                    <span class="link-summary__target"><%= h(linked.display_name) %></span>
-                  </div>
-                <% end %>
-                <form action="/sync/vehicles/link" method="post"
-                      class="inline-form inline-form--link"
-                      data-link-form
-                      <%= 'hidden' if linked %>>
-                  <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
-                  <div class="select" data-select>
-                    <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
-                      <span class="select__value"><%= h(selected_label) %></span>
-                      <span class="select__chevron" aria-hidden="true"></span>
-                    </button>
-                    <ul class="select__list" role="listbox" hidden>
-                      <li class="select__option<%= ' select__option--selected' if current_value == '' %>" role="option" data-value="">— not linked —</li>
-                      <% @local_vehicles.each do |v| %>
-                        <li class="select__option<%= ' select__option--selected' if current_value == v.id.to_s %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
-                      <% end %>
-                    </ul>
-                    <input type="hidden" name="vehicle_id" value="<%= h(current_value) %>">
-                  </div>
-                  <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
-                </form>
-                <% if linked %>
-                  <button type="button" class="link-action" data-link-edit>change</button>
-                <% end %>
-                <form action="/sync/vehicles/ignore" method="post" class="inline-form inline-form--ignore"
-                      data-confirm="Ignore <%= h(remote.display_name) %>? Sync will skip it permanently until you restore it."
-                      data-confirm-action="Ignore"
-                      data-confirm-tone="danger">
-                  <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
-                  <button type="submit" class="link-action" aria-label="Ignore <%= h(remote.display_name) %>">ignore</button>
-                </form>
+                <div class="linking-controls">
+                  <% if linked %>
+                    <div class="link-summary" data-link-summary>
+                      <span class="link-summary__arrow" aria-hidden="true">→</span>
+                      <span class="link-summary__target"><%= h(linked.display_name) %></span>
+                    </div>
+                  <% end %>
+                  <form action="/sync/vehicles/link" method="post"
+                        class="inline-form inline-form--link"
+                        data-link-form
+                        <%= 'hidden' if linked %>>
+                    <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
+                    <div class="select" data-select>
+                      <button type="button" class="select__button" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="select__value"><%= h(selected_label) %></span>
+                        <span class="select__chevron" aria-hidden="true"></span>
+                      </button>
+                      <ul class="select__list" role="listbox" hidden>
+                        <li class="select__option<%= ' select__option--selected' if current_value == '' %>" role="option" data-value="">— not linked —</li>
+                        <% @local_vehicles.each do |v| %>
+                          <li class="select__option<%= ' select__option--selected' if current_value == v.id.to_s %>" role="option" data-value="<%= v.id %>"><%= h(v.display_name) %></li>
+                        <% end %>
+                      </ul>
+                      <input type="hidden" name="vehicle_id" value="<%= h(current_value) %>">
+                    </div>
+                    <button type="submit" class="btn btn--ghost btn--ghost-sm">save</button>
+                  </form>
+                  <% if linked %>
+                    <button type="button" class="link-action" data-link-edit>change</button>
+                  <% end %>
+                  <form action="/sync/vehicles/ignore" method="post" class="inline-form inline-form--ignore"
+                        data-confirm="Ignore <%= h(remote.display_name) %>? Sync will skip it permanently until you restore it."
+                        data-confirm-action="Ignore"
+                        data-confirm-tone="danger">
+                    <input type="hidden" name="remote_uuid" value="<%= h(remote.uuid) %>">
+                    <button type="submit" class="link-action" aria-label="Ignore <%= h(remote.display_name) %>">ignore</button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% end %>

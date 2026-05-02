@@ -117,15 +117,12 @@ class GasBuddySyncTest < ActiveSupport::TestCase
 
   def stub_fuel_logs(results)
     stub_request(:post, "https://www.gasbuddy.com/graphql")
-      .with(body: hash_including("operationName" => "MyVehicleFuelLogs"))
+      .with(body: hash_including("operationName" => "GetFuelLogs"))
       .to_return(
         status: 200,
         body: JSON.generate(
           "data" => {
-            "myVehicle" => {
-              "guid" => @vehicle.gasbuddy_uuid,
-              "fuelLogs" => { "results" => results },
-            },
+            "fuelLogs" => { "results" => results },
           },
         ),
         headers: { "Content-Type" => "application/json" },

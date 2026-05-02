@@ -48,12 +48,12 @@ module GasMoney
         by_uuid.map { |uuid, name| { uuid: uuid, name: name } }
       end
 
-      # Parses the GraphQL response for `myVehicle(guid:).fuelLogs`.
-      # Each FuelLog carries every field we need, so the response is
-      # flattened into DetailEntry rows directly — no separate detail
-      # fetch.
+      # Parses the GraphQL response for the root `fuelLogs(vehicleGuid:)`
+      # query. Each FuelLog carries every field we need, so the
+      # response is flattened into DetailEntry rows directly — no
+      # separate detail fetch.
       def parse_fuel_logs(graphql_response)
-        results = graphql_response.dig("data", "myVehicle", "fuelLogs", "results")
+        results = graphql_response.dig("data", "fuelLogs", "results")
         return [] unless results.is_a?(Array)
 
         results.filter_map do |entry|

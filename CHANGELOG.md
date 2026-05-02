@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-02
+
+### Added
+
+- **Backfill** button on the Sync page. Walks the GasBuddy fuel-log year-by-year from current down to 2010, stopping after 2 consecutive empty years (so vehicles bought mid-history don't terminate the walk early). Decoupled from regular sync via a new `mode: :recent | :backfill` parameter on `Sync.run`.
+- New `GetFuelLogs($guid: ID!, $limit: Int, $year: String)` query at the GraphQL root. Discovered by scraping GasBuddy's `FuelLogBookPage` chunk. Returns one year of entries at a time, which is what makes the backfill possible — the previous `myVehicle.fuelLogs(limit:)` query the SSR uses defaults to current year and has no time filter at all.
+
+### Fixed
+
+- Vehicle linking row hover background painted only on the left cell. Was a `display: flex` rule on `td:last-child` that broke the table-cell paint model. Wrapped the controls in an inner `.linking-controls` flex div instead so the `td` stays a real cell.
+
+### Changed
+
+- Recent sync now uses the same root-level `fuelLogs` query as backfill (with `year: nil`). The previous `MyVehicleFuelLogs` query is gone — keeping a single query path means both modes share the same network/parsing/reconciliation code and we don't have two ways to answer "what fillups exist for this vehicle".
+
 ## [0.9.1] - 2026-05-02
 
 ### Changed

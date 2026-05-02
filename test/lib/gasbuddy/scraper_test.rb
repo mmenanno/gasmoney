@@ -39,33 +39,30 @@ class GasBuddyScraperTest < ActiveSupport::TestCase
   test "parse_fuel_logs flattens results into DetailEntry rows with normalised fields" do
     payload = {
       "data" => {
-        "myVehicle" => {
-          "guid" => "vehicle-1",
-          "fuelLogs" => {
-            "results" => [
-              {
-                "guid" => "entry-1",
-                "purchaseDate" => "2026-04-17T16:00:04Z",
-                "totalCost" => "105.45",
-                "amountFilled" => "64.733",
-                "pricePerUnit" => "162.9",
-                "odometer" => "111616",
-                "fuelEconomy" => {
-                  "status" => "complete",
-                  "fuelEconomy" => { "fuelEconomy" => "10.3", "fuelEconomyUnits" => "L/100km" },
-                },
+        "fuelLogs" => {
+          "results" => [
+            {
+              "guid" => "entry-1",
+              "purchaseDate" => "2026-04-17T16:00:04Z",
+              "totalCost" => "105.45",
+              "amountFilled" => "64.733",
+              "pricePerUnit" => "162.9",
+              "odometer" => "111616",
+              "fuelEconomy" => {
+                "status" => "complete",
+                "fuelEconomy" => { "fuelEconomy" => "10.3", "fuelEconomyUnits" => "L/100km" },
               },
-              {
-                "guid" => "entry-2",
-                "purchaseDate" => "2026-04-04T18:57:39Z",
-                "totalCost" => "52.99",
-                "amountFilled" => "32.5",
-                "pricePerUnit" => "163.1",
-                "odometer" => "111200",
-                "fuelEconomy" => { "status" => "missingPrevious", "fuelEconomy" => nil },
-              },
-            ],
-          },
+            },
+            {
+              "guid" => "entry-2",
+              "purchaseDate" => "2026-04-04T18:57:39Z",
+              "totalCost" => "52.99",
+              "amountFilled" => "32.5",
+              "pricePerUnit" => "163.1",
+              "odometer" => "111200",
+              "fuelEconomy" => { "status" => "missingPrevious", "fuelEconomy" => nil },
+            },
+          ],
         },
       },
     }
@@ -82,7 +79,7 @@ class GasBuddyScraperTest < ActiveSupport::TestCase
   end
 
   test "parse_fuel_logs returns [] when the response carries no results" do
-    assert_equal([], GasMoney::GasBuddy::Scraper.parse_fuel_logs({ "data" => { "myVehicle" => nil } }))
+    assert_equal([], GasMoney::GasBuddy::Scraper.parse_fuel_logs({ "data" => { "fuelLogs" => nil } }))
     assert_equal([], GasMoney::GasBuddy::Scraper.parse_fuel_logs({ "data" => {} }))
   end
 end

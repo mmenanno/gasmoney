@@ -26,43 +26,49 @@ module GasMoney
     # happened — including any partial failures — without losing
     # context.
     class Sync
-      # Single-shot GraphQL query that pulls a vehicle's fuel logs in
-      # the shape GasBuddy's own React app uses. Schema discovered by
-      # inspecting `window.__APOLLO_STATE__` after navigating to a
-      # vehicle's account page: the root query is `myVehicle(guid:)`
-      # returning a `Vehicle` whose `fuelLogs(limit:)` returns a
-      # `FuelLogResults { results: [FuelLog] }` connection. Each
-      # `FuelLog` carries every field we need (timestamp, cost,
-      # quantity, unit price, odometer, fuel economy with its own
-      # status enum), so a single query is enough — no separate
-      # detail fetch.
-      FUEL_LOGS_OPERATION = "MyVehicleFuelLogs"
+      # GasBuddy's GraphQL has two `fuelLogs` queries:
+      #   - `myVehicle(guid:).fuelLogs(limit:)` — used by the SSR
+      #     vehicle profile page, defaults to current-year only.
+      #   - root `fuelLogs(vehicleGuid:, limit:, year:)` — used by
+      #     the dedicated fuel-log-book page, accepts an explicit
+      #     year filter (passed as a String, not Int).
+      # Using the root query with an explicit year is the only way
+      # to backfill prior years; we use it for both modes for
+      # consistency. `year: nil` returns the current-year subset
+      # (same as the recent-only sync used to do); `year: "2024"`
+      # returns just 2024's fillups, and so on.
+      FUEL_LOGS_OPERATION = "GetFuelLogs"
       FUEL_LOGS_LIMIT     = 1000
 
+      # How far back to walk during a backfill, and how many
+      # consecutive empty years to tolerate before stopping. A
+      # vehicle bought mid-year may have a gap year (e.g., owned
+      # 2018 + 2020 but no fillups logged in 2019), so a single
+      # empty year shouldn't terminate the walk.
+      BACKFILL_OLDEST_YEAR    = 2010
+      BACKFILL_EMPTY_YEAR_CAP = 2
+
       FUEL_LOGS_QUERY = <<~GQL
-        query MyVehicleFuelLogs($guid: ID!, $limit: Int) {
-          myVehicle(guid: $guid) {
-            guid
-            fuelLogs(limit: $limit) {
-              results {
-                guid
-                purchaseDate
-                totalCost
-                amountFilled
-                pricePerUnit
-                odometer
-                fuelType
+        query GetFuelLogs($guid: ID!, $limit: Int, $year: String) {
+          fuelLogs(vehicleGuid: $guid, limit: $limit, year: $year) {
+            results {
+              guid
+              purchaseDate
+              totalCost
+              amountFilled
+              pricePerUnit
+              odometer
+              fuelType
+              status
+              fuelEconomy {
                 status
                 fuelEconomy {
-                  status
-                  fuelEconomy {
-                    fuelEconomy
-                    fuelEconomyUnits
-                  }
+                  fuelEconomy
+                  fuelEconomyUnits
                 }
-                location {
-                  name
-                }
+              }
+              location {
+                name
               }
             }
           }
@@ -72,13 +78,18 @@ module GasMoney
       LINK_QUANTITY_TOLERANCE = 0.5    # litres
       LINK_DATE_WINDOW_HOURS  = 36     # ± hours around the remote filled_at
 
-      def self.run(trigger:, logger: nil)
-        new(trigger: trigger, logger: logger).run
+      MODES = [:recent, :backfill].freeze
+
+      def self.run(trigger:, mode: :recent, logger: nil)
+        new(trigger: trigger, mode: mode, logger: logger).run
       end
 
-      def initialize(trigger:, logger: nil)
+      def initialize(trigger:, mode: :recent, logger: nil)
+        raise ArgumentError, "Unknown sync mode: #{mode.inspect}" unless MODES.include?(mode)
+
         @trigger = trigger
-        @logger = logger
+        @mode    = mode
+        @logger  = logger
       end
 
       def run
@@ -148,29 +159,65 @@ module GasMoney
       end
 
       def sync_vehicle(vehicle)
-        @run.log!(:info, "Syncing #{vehicle.display_name} (#{vehicle.gasbuddy_uuid})")
+        label = @mode == :backfill ? "Backfilling" : "Syncing"
+        @run.log!(:info, "#{label} #{vehicle.display_name} (#{vehicle.gasbuddy_uuid})")
+
+        existing_uuids = Fillup.where(vehicle_id: vehicle.id).where.not(gasbuddy_entry_uuid: nil).pluck(:gasbuddy_entry_uuid).to_set
+
+        years = @mode == :backfill ? backfill_year_walk : [nil]
+        total_seen = 0
+        empty_streak = 0
+
+        years.each do |year|
+          details = fetch_year(vehicle, year)
+          total_seen += details.size
+
+          if @mode == :backfill && year
+            if details.empty?
+              empty_streak += 1
+              break if empty_streak >= BACKFILL_EMPTY_YEAR_CAP
+
+              next
+            else
+              empty_streak = 0
+            end
+          end
+
+          details.each do |detail|
+            if existing_uuids.include?(detail.uuid)
+              increment(:fillups_skipped)
+              next
+            end
+            process_detail(vehicle, detail)
+            existing_uuids << detail.uuid
+          end
+        end
+
+        @run.log!(:info, "Vehicle #{vehicle.display_name}: #{total_seen} remote entries seen")
+        @run.update!(vehicles_synced: @run.vehicles_synced + 1)
+      rescue StandardError => e
+        @run.log!(:error, "Sync failed for #{vehicle.display_name}", detail: { error: e.message, klass: e.class.name })
+      end
+
+      def fetch_year(vehicle, year)
+        variables = { guid: vehicle.gasbuddy_uuid, limit: FUEL_LOGS_LIMIT, year: year }
         response = @client.post_graphql(
           operation_name: FUEL_LOGS_OPERATION,
-          variables:      { guid: vehicle.gasbuddy_uuid, limit: FUEL_LOGS_LIMIT },
+          variables:      variables,
           query:          FUEL_LOGS_QUERY,
         )
         details = Scraper.parse_fuel_logs(JSON.parse(response.body))
-        @run.log!(:info, "Vehicle #{vehicle.display_name}: #{details.size} remote entries")
-        @run.update!(vehicles_synced: @run.vehicles_synced + 1)
+        @run.log!(:info, "  #{year || "recent"}: #{details.size} entries") if @mode == :backfill
+        details
+      end
 
-        existing_uuids = Fillup.where(vehicle_id: vehicle.id).where.not(gasbuddy_entry_uuid: nil).pluck(:gasbuddy_entry_uuid)
-        existing_uuid_set = existing_uuids.to_set
-
-        details.each do |detail|
-          if existing_uuid_set.include?(detail.uuid)
-            increment(:fillups_skipped)
-            next
-          end
-
-          process_detail(vehicle, detail)
-        end
-      rescue StandardError => e
-        @run.log!(:error, "Sync failed for #{vehicle.display_name}", detail: { error: e.message, klass: e.class.name })
+      def backfill_year_walk
+        current = Time.now.utc.year
+        # Walk newest → oldest. Newest first means the visible
+        # progress in the log starts with familiar years and works
+        # backwards rather than diving into unrelated ancient data
+        # before the operator gets any feedback.
+        current.downto(BACKFILL_OLDEST_YEAR).map(&:to_s)
       end
 
       def process_detail(vehicle, detail)

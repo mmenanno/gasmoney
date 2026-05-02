@@ -800,6 +800,12 @@ body.modal-open { overflow: hidden; }
 }
 .sync-status__head .section-heading { margin: 0; }
 .sync-status__head .btn { margin-top: 0; padding: 9px 16px; }
+.sync-status__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sync-status__actions .btn--ghost { margin-left: 0; padding: 9px 16px; font-size: 13px; }
 
 .sync-status__readouts {
   display: grid;
@@ -829,9 +835,16 @@ body.modal-open { overflow: hidden; }
 .ledger--linking td { padding: 14px 24px 14px 4px; }
 .ledger--linking th:first-child,
 .ledger--linking td:first-child { padding-left: 18px; }
+.ledger--linking td:last-child { vertical-align: middle; }
 .ignored-remotes__list { padding: 0 4px 0 18px; }
 .ignored-remotes__heading { padding-left: 18px; }
-.ledger--linking td:last-child {
+
+/* Wraps the controls inside the "Linked to" cell. The cell itself
+   stays a real table-cell so the row's hover background paints
+   uniformly across both columns; the flex layout lives on this
+   inner div instead of on the td (display:flex on a td breaks the
+   table-cell paint). */
+.linking-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

@@ -31,10 +31,10 @@ module GasMoney
       end
     end
 
-    def self.run_now_async(trigger:, logger: nil)
+    def self.run_now_async(trigger:, mode: :recent, logger: nil)
       Thread.new do
         ActiveRecord::Base.connection_pool.with_connection do
-          GasBuddy::Sync.run(trigger: trigger, logger: logger)
+          GasBuddy::Sync.run(trigger: trigger, mode: mode, logger: logger)
         end
       rescue StandardError => e
         logger&.error("[scheduler] sync thread crashed: #{e.message}")
