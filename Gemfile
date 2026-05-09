@@ -10,7 +10,7 @@ gem "sinatra",       "~> 4.1"
 # Data
 gem "activerecord",  "~> 8.0"
 gem "csv",           "~> 3.3"
-gem "sqlite3",       "~> 2.6"
+gem "sqlite3",       "~> 2.9"
 
 # GasBuddy auto-sync: Faraday for the HTTP client + cookie persistence,
 # Nokogiri for parsing the server-rendered vehicle list page, Ferrum to
