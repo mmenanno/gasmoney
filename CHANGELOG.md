@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-14
+
+### Added
+
+- **US/imperial unit support.** Every fillup, trip search, and saved trip now carries a `unit_system` tag (`metric` | `us_customary`). Display preference (toggle on `/settings`) is decoupled from storage — the same row renders as either L/km/L/100km or gal/mi/MPG without altering stored values. Pure conversion lives in `lib/units.rb`.
+- **CAD/USD currency support.** Fillups + trip searches also carry a `currency` tag. No FX conversion — each row keeps its native currency forever. A new `currency_label_visibility` preference (`auto` | `always` | `never`) controls whether money output disambiguates `CA$` vs `US$`; `auto` hides the tag until a second currency appears in the DB.
+- **CSV importer** reads the GasBuddy export's `Unit`, `Fuel Economy Unit`, and `Currency` columns and tags each row accordingly. Rows with conflicting unit signals (e.g. `liters` + `MPG`) are skipped.
+- **GasBuddy sync** derives unit + currency from the already-requested `fuelEconomyUnits` field on every fuel log.
+- **Per-fillup overrides** on the manual form — small segmented controls let you record a single border-crossing fillup in different units/currency without flipping the whole app's display preference.
+- **Cross-system dedup**: `Fillup.find_equivalent` (importer) and `Fillup.find_linkable_remote` (sync) normalise quantity to litres before matching, so re-importing the same event in a different unit shape doesn't double-insert. Currency is part of identity — an identical-volume USD fillup is not the same event as a CAD fillup.
+- **`/settings` page** consolidates display preferences with the existing GasBuddy auto-sync configuration. `/sync` redirects there.
+
+### Changed
+
+- Column renames to neutral names now that values are interpreted under the row's `unit_system`: `fillups.quantity_liters` → `quantity`, `fillups.l_per_100km` → `fuel_economy`, `saved_trips.base_kilometers` → `base_distance`, `trip_searches.kilometers` → `distance`, `liters_used` → `fuel_used`, `l_per_100km` → `fuel_economy`. `unit_price_cents` and `total_cost` keep their names but are reinterpreted under the row's currency (¢/L vs ¢/gal, CAD vs USD).
+- `idx_fillups_dedup` rebuilt to include `unit_system` + `currency` so the SQL unique index can't conflate the same litre count in different unit shapes.
+- All existing rows backfill to `metric` + `CAD`.
+
 ## [1.0.0] - 2026-05-02
 
 First stable release. No functional change versus 0.10.10 — the bump signals that the feature set has stabilised after the 0.10.x polish cycle. From here, semver applies normally (breaking changes go to 2.0.0, additions to 1.x.0, fixes to 1.0.x).

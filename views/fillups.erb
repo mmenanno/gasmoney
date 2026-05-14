@@ -1,32 +1,77 @@
+<% form_unit_system = app_setting.display_unit_system %>
+<% form_currency    = "CAD" %>
+<% labels = {
+     volume:           GasMoney::Units.label(:volume,           form_unit_system.to_sym),
+     distance:         GasMoney::Units.label(:distance,         form_unit_system.to_sym),
+     economy:          GasMoney::Units.label(:economy,          form_unit_system.to_sym),
+     price_per_volume: GasMoney::Units.label(:price_per_volume, form_unit_system.to_sym),
+   } %>
+
 <section class="form-section">
   <h3 class="section-heading">Add a fillup — <%= h(@vehicle.display_name) %></h3>
-  <p class="lede">Manually log a fuel-up. Same shape as a CSV row from GasBuddy: total cost, litres, unit price, odometer, and (for non-partial fills) the L/100km reading off the dash.</p>
+  <p class="lede">Manually log a fuel-up. The unit + currency toggles default to your display preference but can be overridden for a single border-crossing fillup without flipping the whole app.</p>
 
   <% now_local = Time.now.strftime("%Y-%m-%dT%H:%M") %>
-  <form action="/vehicles/<%= @vehicle.id %>/fillups" method="post" class="form">
+  <form action="/vehicles/<%= @vehicle.id %>/fillups" method="post" class="form" data-fillup-form>
+    <div class="toggle-row">
+      <fieldset class="field">
+        <legend class="field__label">Units</legend>
+        <div class="segmented">
+          <label class="segmented__option">
+            <input type="radio" name="unit_system" value="metric"
+                   <%= "checked" if form_unit_system == "metric" %>
+                   data-fillup-units>
+            <span>Metric</span>
+          </label>
+          <label class="segmented__option">
+            <input type="radio" name="unit_system" value="us_customary"
+                   <%= "checked" if form_unit_system == "us_customary" %>
+                   data-fillup-units>
+            <span>US</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend class="field__label">Currency</legend>
+        <div class="segmented">
+          <label class="segmented__option">
+            <input type="radio" name="currency" value="CAD"
+                   <%= "checked" if form_currency == "CAD" %>>
+            <span>CAD</span>
+          </label>
+          <label class="segmented__option">
+            <input type="radio" name="currency" value="USD"
+                   <%= "checked" if form_currency == "USD" %>>
+            <span>USD</span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+
     <label class="field">
       <span class="field__label">Filled at</span>
       <input type="datetime-local" name="filled_at" value="<%= now_local %>" required>
     </label>
     <label class="field">
-      <span class="field__label">Total cost ($)</span>
+      <span class="field__label">Total cost</span>
       <input type="number" name="total_cost" min="0" step="0.01" placeholder="50.00" required>
     </label>
     <label class="field">
-      <span class="field__label">Quantity (L)</span>
-      <input type="number" name="quantity_liters" min="0" step="0.001" placeholder="40.000" required>
+      <span class="field__label">Quantity (<span data-fillup-label="volume"><%= labels[:volume] %></span>)</span>
+      <input type="number" name="quantity" min="0" step="0.001" placeholder="40.000" required>
     </label>
     <label class="field">
-      <span class="field__label">Unit price (¢/L)</span>
+      <span class="field__label">Unit price (¢<span data-fillup-label="price_per_volume"><%= labels[:price_per_volume] %></span>)</span>
       <input type="number" name="unit_price_cents" min="0" step="0.1" placeholder="125.0" required>
     </label>
     <label class="field">
-      <span class="field__label">Odometer (km)</span>
+      <span class="field__label">Odometer (<span data-fillup-label="distance"><%= labels[:distance] %></span>)</span>
       <input type="number" name="odometer" min="0" step="1" placeholder="100000">
     </label>
     <label class="field">
-      <span class="field__label">Fuel economy (L/100km)<span class="field__hint">leave blank for partial fill</span></span>
-      <input type="number" name="l_per_100km" min="0" step="0.1" placeholder="9.0">
+      <span class="field__label">Fuel economy (<span data-fillup-label="economy"><%= labels[:economy] %></span>)<span class="field__hint">leave blank for partial fill</span></span>
+      <input type="number" name="fuel_economy" min="0" step="0.1" placeholder="9.0">
     </label>
     <button type="submit" class="btn btn--primary">Add fillup</button>
   </form>
@@ -44,10 +89,10 @@
           <th class="ledger__source" aria-label="Source"></th>
           <th>Filled at</th>
           <th class="num">Cost</th>
-          <th class="num">L</th>
-          <th class="num">¢/L</th>
+          <th class="num"><%= unit_label(:volume) %></th>
+          <th class="num">¢<%= unit_label(:price_per_volume) %></th>
           <th class="num">Odometer</th>
-          <th class="num">L/100km</th>
+          <th class="num"><%= unit_label(:economy) %></th>
           <th></th>
         </tr>
       </thead>
@@ -62,11 +107,11 @@
               <% end %>
             </td>
             <td><%= fmt_date(f.filled_at) %></td>
-            <td class="num"><%= fmt_money(f.total_cost) %></td>
-            <td class="num"><%= format("%.2f", f.quantity_liters) %></td>
-            <td class="num"><%= format("%.1f", f.unit_price_cents) %></td>
-            <td class="num"><%= f.odometer || "—" %></td>
-            <td class="num"><%= f.l_per_100km ? format("%.1f", f.l_per_100km) : "partial" %></td>
+            <td class="num"><%= fmt_money(f.total_cost, currency: f.currency) %></td>
+            <td class="num"><%= fmt_volume(f.quantity, source_unit: f.unit_system, with_label: false) %></td>
+            <td class="num"><%= fmt_unit_price(f.unit_price_cents, source_unit: f.unit_system, currency: f.currency, with_label: false) %></td>
+            <td class="num"><%= f.odometer ? fmt_distance(f.odometer, source_unit: f.unit_system, with_label: false, precision: 0) : "—" %></td>
+            <td class="num"><%= f.fuel_economy ? fmt_economy(f.fuel_economy, source_unit: f.unit_system, with_label: false) : "partial" %></td>
             <td class="num">
               <form action="/fillups/<%= f.id %>/delete" method="post" class="inline-form" data-confirm="Delete this fillup? This cannot be undone." data-confirm-action="Delete fillup">
                 <button type="submit" class="btn-delete" aria-label="Delete">×</button>
@@ -78,3 +123,5 @@
     </table>
   <% end %>
 </section>
+
+<script src="/fillup-form.js" defer></script>

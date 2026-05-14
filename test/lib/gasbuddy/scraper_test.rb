@@ -71,11 +71,68 @@ class GasBuddyScraperTest < ActiveSupport::TestCase
 
     assert_equal(["entry-1", "entry-2"], entries.map(&:uuid))
     assert_in_delta(105.45,  entries[0].total_cost,       0.001)
-    assert_in_delta(64.733,  entries[0].quantity_liters,  0.001)
+    assert_in_delta(64.733,  entries[0].quantity,         0.001)
     assert_in_delta(162.9,   entries[0].unit_price_cents, 0.001)
     assert_equal(111_616,    entries[0].odometer)
-    assert_in_delta(10.3,    entries[0].l_per_100km, 0.001)
-    assert_nil(entries[1].l_per_100km, "missingPrevious entries should surface nil fuel economy")
+    assert_in_delta(10.3,    entries[0].fuel_economy, 0.001)
+    assert_nil(entries[1].fuel_economy, "missingPrevious entries should surface nil fuel economy")
+  end
+
+  test "parse_fuel_logs tags metric entries with unit_system + currency" do
+    payload = {
+      "data" => {
+        "fuelLogs" => {
+          "results" => [
+            {
+              "guid" => "entry-1",
+              "purchaseDate" => "2026-04-17T16:00:04Z",
+              "totalCost" => "105.45",
+              "amountFilled" => "64.733",
+              "pricePerUnit" => "162.9",
+              "odometer" => "111616",
+              "fuelEconomy" => {
+                "status" => "complete",
+                "fuelEconomy" => { "fuelEconomy" => "10.3", "fuelEconomyUnits" => "L/100km" },
+              },
+            },
+          ],
+        },
+      },
+    }
+
+    entry = GasMoney::GasBuddy::Scraper.parse_fuel_logs(payload).first
+
+    assert_equal("metric", entry.unit_system)
+    assert_equal("CAD",    entry.currency)
+  end
+
+  test "parse_fuel_logs tags an MPG entry as us_customary + USD" do
+    payload = {
+      "data" => {
+        "fuelLogs" => {
+          "results" => [
+            {
+              "guid" => "entry-us",
+              "purchaseDate" => "2026-04-17T16:00:04Z",
+              "totalCost" => "42.55",
+              "amountFilled" => "9.401",
+              "pricePerUnit" => "452.6",
+              "odometer" => "60214",
+              "fuelEconomy" => {
+                "status" => "complete",
+                "fuelEconomy" => { "fuelEconomy" => "27.4", "fuelEconomyUnits" => "MPG" },
+              },
+            },
+          ],
+        },
+      },
+    }
+
+    entry = GasMoney::GasBuddy::Scraper.parse_fuel_logs(payload).first
+
+    assert_equal("us_customary", entry.unit_system)
+    assert_equal("USD",          entry.currency)
+    assert_in_delta(27.4,        entry.fuel_economy, 0.001)
   end
 
   test "parse_fuel_logs returns [] when the response carries no results" do
