@@ -16,7 +16,7 @@ gem "sqlite3",       "~> 2.9"
 # Nokogiri for parsing the server-rendered vehicle list page, Ferrum to
 # drive a bundled headless Chromium for the login (CF challenge + the
 # React form's JSON XHR), rufus-scheduler for the daily cron.
-gem "faraday",            "~> 2.13"
+gem "faraday",            "~> 2.14"
 gem "faraday-cookie_jar", "~> 0.0.7"
 gem "ferrum",             "~> 0.16"
 gem "http-cookie",        "~> 1.0"
