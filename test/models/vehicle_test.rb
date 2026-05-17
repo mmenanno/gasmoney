@@ -63,7 +63,7 @@ class VehicleTest < ActiveSupport::TestCase
     GasMoney::Calculator.estimate(
       vehicle_id: v.id,
       trip_date:  "2026-02-15",
-      kilometers: 100,
+      distance:   100,
     )
 
     assert_difference("GasMoney::TripSearch.count", -1) do

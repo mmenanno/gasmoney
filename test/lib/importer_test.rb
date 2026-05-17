@@ -33,9 +33,9 @@ class ImporterTest < ActiveSupport::TestCase
 
     assert_equal(@vehicle.id, fillup.vehicle_id)
     assert_equal("2026-04-17T16:00:04Z", fillup.filled_at)
-    assert_in_delta(10.3,    fillup.l_per_100km,      0.001)
+    assert_in_delta(10.3,    fillup.fuel_economy,     0.001)
     assert_in_delta(162.9,   fillup.unit_price_cents, 0.001)
-    assert_in_delta(64.733,  fillup.quantity_liters,  0.001)
+    assert_in_delta(64.733,  fillup.quantity,         0.001)
   end
 
   test "ignores the CSV's Vehicle column entirely" do
@@ -51,7 +51,7 @@ class ImporterTest < ActiveSupport::TestCase
     assert_equal(@vehicle.id, GasMoney::Fillup.first.vehicle_id)
   end
 
-  test "treats missingPrevious fuel economy as a partial fill (nil l_per_100km)" do
+  test "treats missingPrevious fuel economy as a partial fill (nil fuel_economy)" do
     csv = <<~CSV
       #{HEADER}
       "2026-04-04 18:57:39","Pump A","","","","","","52.99","CAD","regular_gas","29.955","liters","X","176.9",110988,"missingPrevious","","Yes",
@@ -60,10 +60,10 @@ class ImporterTest < ActiveSupport::TestCase
     GasMoney::Importer.import(StringIO.new(csv), vehicle: @vehicle)
     fillup = GasMoney::Fillup.first
 
-    assert_nil(fillup.l_per_100km)
+    assert_nil(fillup.fuel_economy)
   end
 
-  test "dedups on (vehicle_id, filled_at, odometer, quantity_liters)" do
+  test "dedups on (vehicle_id, filled_at, odometer, quantity)" do
     row = <<~ROW
       "2026-04-17 16:00:04","Pump A","","","","","","105.45","CAD","regular_gas","64.733","liters","X","162.9",111616,"10.3","L/100km","Yes",
     ROW
@@ -116,5 +116,74 @@ class ImporterTest < ActiveSupport::TestCase
     ensure
       FileUtils.rm_f(csv_path)
     end
+  end
+
+  test "imports a us_customary row with USD" do
+    csv = <<~CSV
+      #{HEADER}
+      "2026-05-01 12:00:00","Pump A","","","","","","42.55","USD","regular_gas","9.401","gallons","Anything","452.6",60214,"27.4","MPG","Yes",
+    CSV
+
+    result = GasMoney::Importer.import(StringIO.new(csv), vehicle: @vehicle)
+
+    assert_equal(1, result.inserted)
+    fillup = GasMoney::Fillup.first
+
+    assert_equal("us_customary",  fillup.unit_system)
+    assert_equal("USD",           fillup.currency)
+    assert_in_delta(9.401,        fillup.quantity,         0.001)
+    assert_in_delta(27.4,         fillup.fuel_economy,     0.001)
+    assert_in_delta(452.6,        fillup.unit_price_cents, 0.001)
+  end
+
+  test "skips rows whose Unit and Fuel Economy Unit signals disagree" do
+    csv = <<~CSV
+      #{HEADER}
+      "2026-05-01 12:00:00","","","","","","","100","CAD","regular","50","liters","X","160","100000","30","MPG","Yes",
+    CSV
+
+    result = GasMoney::Importer.import(StringIO.new(csv), vehicle: @vehicle)
+
+    assert_equal(0, result.inserted)
+    assert_equal(1, result.skipped)
+    assert_equal(0, GasMoney::Fillup.count)
+  end
+
+  test "dedups cross-system: re-importing the same event in us_customary after a metric insert" do
+    # Same fillup, expressed once in metric and once in us_customary.
+    # 64.733 L ≈ 17.099 gal, and the L/100km / MPG figures are
+    # equivalent (10.3 L/100km ≈ 22.84 MPG).
+    metric_csv = <<~CSV
+      #{HEADER}
+      "2026-04-17 16:00:04","Pump A","","","","","","105.45","CAD","regular_gas","64.733","liters","X","162.9",111616,"10.3","L/100km","Yes",
+    CSV
+    us_csv = <<~CSV
+      #{HEADER}
+      "2026-04-17 16:00:04","Pump A","","","","","","105.45","CAD","regular_gas","17.099","gallons","X","616.69",111616,"22.84","MPG","Yes",
+    CSV
+
+    GasMoney::Importer.import(StringIO.new(metric_csv), vehicle: @vehicle)
+    second = GasMoney::Importer.import(StringIO.new(us_csv), vehicle: @vehicle)
+
+    assert_equal(0, second.inserted)
+    assert_equal(1, second.duplicates)
+    assert_equal(1, GasMoney::Fillup.count)
+  end
+
+  test "does NOT dedup across currencies — a USD fillup of the same volume at the same timestamp is a distinct event" do
+    cad_csv = <<~CSV
+      #{HEADER}
+      "2026-04-17 16:00:04","","","","","","","100","CAD","regular_gas","50.0","liters","X","160","111616","8","L/100km","Yes",
+    CSV
+    usd_csv = <<~CSV
+      #{HEADER}
+      "2026-04-17 16:00:04","","","","","","","100","USD","regular_gas","50.0","liters","X","160","111616","8","L/100km","Yes",
+    CSV
+
+    GasMoney::Importer.import(StringIO.new(cad_csv), vehicle: @vehicle)
+    second = GasMoney::Importer.import(StringIO.new(usd_csv), vehicle: @vehicle)
+
+    assert_equal(1, second.inserted)
+    assert_equal(2, GasMoney::Fillup.count)
   end
 end

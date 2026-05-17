@@ -1,0 +1,55 @@
+<section class="form-section">
+  <h2 class="section-heading">Display preferences</h2>
+  <p class="lede">
+    How Gas Money renders fuel volumes, distances, fuel economy, and money in the UI.
+    Display only — every fillup is stored in the units and currency it was logged in.
+  </p>
+
+  <form action="/settings" method="post" class="form">
+    <fieldset class="field">
+      <legend class="field__label">Display units</legend>
+      <p class="field__hint field__hint--block">Litres, kilometres, L/100km — or gallons, miles, MPG.</p>
+      <div class="segmented">
+        <label class="segmented__option">
+          <input type="radio" name="display_unit_system" value="metric"
+                 <%= "checked" if @app_setting.display_unit_system == "metric" %>>
+          <span>Metric</span>
+        </label>
+        <label class="segmented__option">
+          <input type="radio" name="display_unit_system" value="us_customary"
+                 <%= "checked" if @app_setting.display_unit_system == "us_customary" %>>
+          <span>US customary</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend class="field__label">Currency label</legend>
+      <p class="field__hint field__hint--block">
+        Disambiguate <strong>CA$</strong> vs <strong>US$</strong> in money output.
+        <strong>Auto</strong> hides the tag while there's only one currency in the database.
+      </p>
+      <div class="segmented">
+        <label class="segmented__option">
+          <input type="radio" name="currency_label_visibility" value="auto"
+                 <%= "checked" if @app_setting.currency_label_visibility == "auto" %>>
+          <span>Auto</span>
+        </label>
+        <label class="segmented__option">
+          <input type="radio" name="currency_label_visibility" value="always"
+                 <%= "checked" if @app_setting.currency_label_visibility == "always" %>>
+          <span>Always</span>
+        </label>
+        <label class="segmented__option">
+          <input type="radio" name="currency_label_visibility" value="never"
+                 <%= "checked" if @app_setting.currency_label_visibility == "never" %>>
+          <span>Never</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn--primary">Save settings</button>
+  </form>
+</section>
+
+<%= erb :sync, layout: false %>

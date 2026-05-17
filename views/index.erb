@@ -2,24 +2,26 @@
 <% if summaries.any? %>
   <section class="vehicles">
     <% summaries.each do |v| %>
+      <% summary_units = v[:summary].unit_system || "metric" %>
+      <% summary_currency = v[:summary].currency %>
       <article class="vcard">
         <h2 class="vcard__name"><%= h(v[:vehicle].display_name) %></h2>
         <hr class="rule">
         <div class="vcard__readouts">
           <div class="readout">
-            <div class="readout__value"><%= fmt_per_km(v[:summary].latest) %><span class="readout__unit"> / km</span></div>
+            <div class="readout__value"><%= fmt_cost_per_distance(v[:summary].latest, source_unit: summary_units, currency: summary_currency) %><span class="readout__unit"> / <%= unit_label(:distance) %></span></div>
             <div class="readout__caption">latest fillup</div>
           </div>
           <div class="readout">
-            <div class="readout__value"><%= fmt_per_km(v[:summary].average5) %><span class="readout__unit"> / km</span></div>
+            <div class="readout__value"><%= fmt_cost_per_distance(v[:summary].average5, source_unit: summary_units, currency: summary_currency) %><span class="readout__unit"> / <%= unit_label(:distance) %></span></div>
             <div class="readout__caption">5-fillup avg<% if v[:summary].sample_size && v[:summary].sample_size < 5 %> (n=<%= v[:summary].sample_size %>)<% end %></div>
           </div>
         </div>
         <% if v[:latest] %>
           <div class="vcard__footer">
             last fillup <%= fmt_date(v[:latest].filled_at) %>
-            · <%= format("%.1f L", v[:latest].quantity_liters) %>
-            @ <%= fmt_unit_price(v[:latest].unit_price_cents) %>
+            · <%= fmt_volume(v[:latest].quantity, source_unit: v[:latest].unit_system) %>
+            @ <%= fmt_unit_price(v[:latest].unit_price_cents, source_unit: v[:latest].unit_system, currency: v[:latest].currency) %>
           </div>
         <% else %>
           <div class="vcard__footer">no fillups imported yet</div>
@@ -29,7 +31,7 @@
   </section>
 <% elsif vehicles.any? %>
   <section class="empty-state">
-    <p class="lede">No vehicles pinned to the dashboard yet — <a href="/vehicles" class="link-accent">pin one</a> to see its $/km tiles here.</p>
+    <p class="lede">No vehicles pinned to the dashboard yet — <a href="/vehicles" class="link-accent">pin one</a> to see its $/<%= unit_label(:distance) %> tiles here.</p>
   </section>
 <% else %>
   <section class="empty-state">
@@ -39,12 +41,12 @@
 
 <% if @result %>
   <section class="result">
-    <div class="result__total"><%= fmt_money(@result[:estimated_cost]) %></div>
+    <div class="result__total"><%= fmt_money(@result[:estimated_cost], currency: @result[:currency]) %></div>
     <div class="result__caption">
       <%= h(@result[:vehicle_name]) %>
-      · <%= format("%.1f L", @result[:liters_used]) %>
-      × <%= fmt_unit_price(@result[:unit_price_cents]) %>
-      · <%= format("%.1f L/100km", @result[:l_per_100km]) %>
+      · <%= fmt_volume(@result[:fuel_used], source_unit: @result[:unit_system]) %>
+      × <%= fmt_unit_price(@result[:unit_price_cents], source_unit: @result[:unit_system], currency: @result[:currency]) %>
+      · <%= fmt_economy(@result[:fuel_economy], source_unit: @result[:unit_system]) %>
       · <%= h(fmt_method(@result[:calc_method])) %>
     </div>
   </section>
@@ -57,10 +59,13 @@
   <% trips = saved_trips %>
   <% if trips.any? %>
     <%
+      trip_distance_label = ->(t) do
+        unit = t["unit_system"] || "metric"
+        "#{t['name']} · #{fmt_distance(t['base_distance'], source_unit: unit)}#{' · round' if t['round_trip'] == 1}"
+      end
       selected_label =
         if @selected_trip
-          "#{@selected_trip['name']} · #{format('%g', @selected_trip['base_kilometers'])} km" \
-            "#{' · round' if @selected_trip['round_trip'] == 1}"
+          trip_distance_label.call(@selected_trip)
         else
           "— none —"
         end
@@ -76,8 +81,7 @@
           <ul class="select__list" role="listbox" hidden>
             <li class="select__option<%= ' select__option--selected' unless @selected_trip %>" role="option" data-value="" data-href="/">— none —</li>
             <% trips.each do |t| %>
-              <% label = "#{t['name']} · #{format('%g', t['base_kilometers'])} km#{' · round' if t['round_trip'] == 1}" %>
-              <li class="select__option<%= ' select__option--selected' if @selected_trip && @selected_trip["id"] == t["id"] %>" role="option" data-value="<%= t["id"] %>" data-href="/?trip=<%= t["id"] %>"><%= h(label) %></li>
+              <li class="select__option<%= ' select__option--selected' if @selected_trip && @selected_trip["id"] == t["id"] %>" role="option" data-value="<%= t["id"] %>" data-href="/?trip=<%= t["id"] %>"><%= h(trip_distance_label.call(t)) %></li>
             <% end %>
           </ul>
         </div>
@@ -109,13 +113,13 @@
       <input type="date" name="trip_date" value="<%= Date.today.iso8601 %>" required>
     </label>
     <label class="field">
-      <span class="field__label">Kilometres<% if @selected_trip %> <span class="field__hint">from "<%= h(@selected_trip["name"]) %>"</span><% end %></span>
-      <input type="number" name="kilometers" min="0" step="0.1" placeholder="e.g. 150"
-             value="<%= @selected_trip ? format('%g', @selected_trip['base_kilometers']) : '' %>" required>
+      <span class="field__label">Distance (<%= unit_label(:distance) %>)<% if @selected_trip %> <span class="field__hint">from "<%= h(@selected_trip["name"]) %>"</span><% end %></span>
+      <input type="number" name="distance" min="0" step="0.1" placeholder="e.g. 150"
+             value="<%= @selected_trip ? format('%g', @selected_trip['base_distance']) : '' %>" required>
     </label>
     <label class="checkbox">
       <input type="checkbox" name="round_trip" value="1" <%= 'checked' if @selected_trip && @selected_trip["round_trip"] == 1 %>>
-      <span>Round trip (double the kilometres)</span>
+      <span>Round trip (double the distance)</span>
     </label>
     <button type="submit" class="btn btn--primary">Estimate cost</button>
   </form>
@@ -133,7 +137,7 @@
         <tr>
           <th>Date</th>
           <th>Vehicle</th>
-          <th class="num">Km</th>
+          <th class="num"><%= unit_label(:distance).capitalize %></th>
           <th class="num">Cost</th>
           <th>Method</th>
           <th></th>
@@ -144,8 +148,8 @@
           <tr>
             <td><%= fmt_date(s["trip_date"]) %></td>
             <td><%= h(s.vehicle.display_name) %></td>
-            <td class="num"><%= format("%.1f", s["kilometers"]) %></td>
-            <td class="num"><%= fmt_money(s["estimated_cost"]) %></td>
+            <td class="num"><%= fmt_distance(s["distance"], source_unit: s["unit_system"], with_label: false) %></td>
+            <td class="num"><%= fmt_money(s["estimated_cost"], currency: s["currency"]) %></td>
             <td><%= h(fmt_method(s["calc_method"])) %></td>
             <td class="num">
               <form action="/searches/<%= s["id"] %>/delete" method="post" class="inline-form"

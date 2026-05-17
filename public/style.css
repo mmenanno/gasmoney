@@ -463,6 +463,100 @@ body.nav-open .nav-toggle__line:nth-child(3) {
   margin-left: 4px;
 }
 
+/* Strip browser defaults from fieldsets used for grouped form
+   controls. Legend renders with the same mono-caps style as
+   .field__label. */
+fieldset.field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+fieldset.field > legend.field__label {
+  padding: 0;
+  margin-bottom: 6px;
+  float: none;
+}
+.field__hint--block {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.field__hint--block strong { color: var(--accent); font-weight: 500; }
+
+/* Segmented control. Used for grouped radio choices (display units,
+   currency, per-fillup overrides). Active segment uses the mint
+   accent; inactive segments stay quiet. The radios themselves are
+   visually hidden but remain in the tab order. */
+.segmented {
+  display: flex;
+  flex-wrap: nowrap;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+.segmented__option {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  cursor: pointer;
+}
+.segmented__option input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  /* Explicit override — the UA stylesheet pins input cursor to
+     `default`, beating inheritance from the label. */
+  cursor: pointer;
+}
+.segmented__option > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 100ms ease, background-color 100ms ease;
+}
+.segmented__option:hover > span { color: var(--ink); }
+.segmented__option input[type="radio"]:checked + span {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.segmented__option input[type="radio"]:checked + span:hover { color: var(--accent-ink); }
+.segmented__option input[type="radio"]:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Two segmented fieldsets stacked side-by-side at the top of the
+   fillup form. Wraps to a single column on narrow viewports. */
+.toggle-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 520px) {
+  .toggle-row { grid-template-columns: 1fr; }
+}
+
 .link-accent { color: var(--accent); }
 .link-accent:hover { color: #a3d6ce; }
 
