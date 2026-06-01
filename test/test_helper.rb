@@ -73,10 +73,10 @@ module ActiveSupport
       defaults = {
         filled_at: "2026-01-15T12:00:00Z",
         total_cost: 50.00,
-        quantity_liters: 40.0,
+        quantity: 40.0,
         unit_price_cents: 125.0,
         odometer: 50_000,
-        l_per_100km: 9.0,
+        fuel_economy: 9.0,
       }
       GasMoney::Fillup.create!(defaults.merge(attrs).merge(vehicle: vehicle))
     end

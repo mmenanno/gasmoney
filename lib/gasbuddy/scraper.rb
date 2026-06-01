@@ -14,12 +14,29 @@ module GasMoney
         :uuid,
         :filled_at,
         :total_cost,
-        :quantity_liters,
+        :quantity,
         :unit_price_cents,
         :odometer,
-        :l_per_100km,
+        :fuel_economy,
+        :unit_system,
+        :currency,
         keyword_init: true,
       )
+
+      # GasBuddy returns the fuel-economy unit on every fillup; the
+      # volume/odometer/currency fields don't carry per-field units in
+      # the response we currently request, so we derive unit_system
+      # from this signal and infer currency from unit_system.
+      def self.unit_system_from_economy_units(units)
+        case units.to_s.strip
+        when "L/100km", "km/L" then "metric"
+        when "MPG"             then "us_customary"
+        end
+      end
+
+      def self.currency_for_unit_system(unit_system)
+        unit_system == "us_customary" ? "USD" : "CAD"
+      end
 
       extend self
 
@@ -61,14 +78,19 @@ module GasMoney
           purchase_date = entry["purchaseDate"]
           next if uuid.nil? || purchase_date.nil?
 
+          fe_units = entry.dig("fuelEconomy", "fuelEconomy", "fuelEconomyUnits")
+          unit_system = unit_system_from_economy_units(fe_units) || "metric"
+
           DetailEntry.new(
             uuid:             uuid,
             filled_at:        normalize_iso8601(purchase_date),
             total_cost:       to_float(entry["totalCost"]),
-            quantity_liters:  to_float(entry["amountFilled"]),
+            quantity:         to_float(entry["amountFilled"]),
             unit_price_cents: to_float(entry["pricePerUnit"]),
             odometer:         to_int(entry["odometer"]),
-            l_per_100km:      extract_economy(entry["fuelEconomy"]),
+            fuel_economy:     extract_economy(entry["fuelEconomy"]),
+            unit_system:      unit_system,
+            currency:         currency_for_unit_system(unit_system),
           )
         end
       end

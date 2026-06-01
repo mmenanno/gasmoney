@@ -75,8 +75,7 @@ module GasMoney
         }
       GQL
 
-      LINK_QUANTITY_TOLERANCE = 0.5    # litres
-      LINK_DATE_WINDOW_HOURS  = 36     # ± hours around the remote filled_at
+      LINK_DATE_WINDOW_HOURS = 36 # ± hours around the remote filled_at
 
       MODES = [:recent, :backfill].freeze
 
@@ -233,11 +232,13 @@ module GasMoney
           vehicle_id:          vehicle.id,
           filled_at:           detail.filled_at,
           total_cost:          detail.total_cost || 0,
-          quantity_liters:     detail.quantity_liters || 0,
+          quantity:            detail.quantity || 0,
           unit_price_cents:    detail.unit_price_cents || 0,
           odometer:            detail.odometer,
-          l_per_100km:         detail.l_per_100km,
+          fuel_economy:        detail.fuel_economy,
           gasbuddy_entry_uuid: detail.uuid,
+          unit_system:         detail.unit_system,
+          currency:            detail.currency,
         )
         increment(:fillups_inserted)
       rescue ActiveRecord::RecordNotUnique
@@ -254,20 +255,14 @@ module GasMoney
       # already carry a gasbuddy_entry_uuid so we don't overwrite a
       # link from a previous sync.
       def find_linkable(vehicle, detail)
-        return if detail.filled_at.nil? || detail.quantity_liters.nil?
-
-        target_time = Time.parse(detail.filled_at)
-        window_start = (target_time - (LINK_DATE_WINDOW_HOURS * 3_600)).iso8601
-        window_end   = (target_time + (LINK_DATE_WINDOW_HOURS * 3_600)).iso8601
-        qty_min = detail.quantity_liters - LINK_QUANTITY_TOLERANCE
-        qty_max = detail.quantity_liters + LINK_QUANTITY_TOLERANCE
-
-        Fillup.where(vehicle_id: vehicle.id, gasbuddy_entry_uuid: nil)
-          .where(filled_at: window_start..window_end)
-          .where(quantity_liters: qty_min..qty_max)
-          .first
-      rescue ArgumentError
-        nil
+        Fillup.find_linkable_remote(
+          vehicle_id:   vehicle.id,
+          filled_at:    detail.filled_at,
+          quantity:     detail.quantity,
+          unit_system:  detail.unit_system,
+          currency:     detail.currency,
+          window_hours: LINK_DATE_WINDOW_HOURS,
+        )
       end
 
       def increment(field)

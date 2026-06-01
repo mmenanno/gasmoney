@@ -13,6 +13,7 @@ require_relative "models/gasbuddy_setting"
 require_relative "models/sync_run"
 require_relative "models/sync_log_entry"
 require_relative "models/gasbuddy_remote_vehicle"
+require_relative "models/app_setting"
 
 module GasMoney
   module DB
@@ -54,13 +55,17 @@ module GasMoney
           t.references(:vehicle, null: false)
           t.string(:filled_at, null: false)
           t.float(:total_cost,       null: false)
-          t.float(:quantity_liters,  null: false)
+          t.float(:quantity,         null: false)
           t.float(:unit_price_cents, null: false)
           t.integer(:odometer)
-          t.float(:l_per_100km)
+          t.float(:fuel_economy)
           t.string(:gasbuddy_entry_uuid)
+          # See Fillup model for how quantity / fuel_economy /
+          # unit_price_cents / total_cost are interpreted under these.
+          t.string(:unit_system, null: false, default: "metric")
+          t.string(:currency,    null: false, default: "CAD")
           t.index(
-            [:vehicle_id, :filled_at, :odometer, :quantity_liters],
+            [:vehicle_id, :filled_at, :odometer, :quantity, :unit_system, :currency],
             unique: true,
             name: "idx_fillups_dedup",
           )
@@ -70,12 +75,14 @@ module GasMoney
         create_table(:trip_searches, if_not_exists: true) do |t|
           t.references(:vehicle, null: false)
           t.string(:trip_date, null: false)
-          t.float(:kilometers,       null: false)
+          t.float(:distance,         null: false)
           t.float(:estimated_cost,   null: false)
-          t.float(:liters_used,      null: false)
+          t.float(:fuel_used,        null: false)
           t.float(:unit_price_cents, null: false)
-          t.float(:l_per_100km,      null: false)
+          t.float(:fuel_economy,     null: false)
           t.string(:calc_method, null: false)
+          t.string(:unit_system, null: false, default: "metric")
+          t.string(:currency,    null: false, default: "CAD")
           t.string(
             :created_at,
             null: false,
@@ -85,8 +92,9 @@ module GasMoney
 
         create_table(:saved_trips, if_not_exists: true) do |t|
           t.string(:name, null: false)
-          t.float(:base_kilometers, null: false)
+          t.float(:base_distance, null: false)
           t.integer(:round_trip, null: false, default: 0)
+          t.string(:unit_system, null: false, default: "metric")
           t.string(
             :created_at,
             null: false,
@@ -161,6 +169,18 @@ module GasMoney
           )
           t.index(:uuid, unique: true, name: "idx_gasbuddy_remote_vehicles_uuid")
         end
+
+        # Single-row, GasbuddySetting-style.
+        create_table(:app_settings, if_not_exists: true) do |t|
+          t.string(:display_unit_system, null: false, default: "metric")
+          t.string(:currency_label_visibility, null: false, default: "auto")
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+          t.string(:updated_at)
+        end
       end
     end
 
@@ -211,11 +231,75 @@ module GasMoney
         conn.add_index(:gasbuddy_remote_vehicles, :uuid, unique: true, name: "idx_gasbuddy_remote_vehicles_uuid")
       end
 
+      unless conn.table_exists?(:app_settings)
+        conn.create_table(:app_settings) do |t|
+          t.string(:display_unit_system, null: false, default: "metric")
+          t.string(:currency_label_visibility, null: false, default: "auto")
+          t.string(
+            :created_at,
+            null: false,
+            default: -> { "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))" },
+          )
+          t.string(:updated_at)
+        end
+      end
+
+      # NOT NULL enforced at the model layer to avoid SQLite table
+      # rewrites; the explicit UPDATE catches any rows the column
+      # DEFAULT misses.
+      add_tagged_column(conn, :fillups,       :unit_system, "metric")
+      add_tagged_column(conn, :fillups,       :currency,    "CAD")
+      add_tagged_column(conn, :trip_searches, :unit_system, "metric")
+      add_tagged_column(conn, :trip_searches, :currency,    "CAD")
+      add_tagged_column(conn, :saved_trips,   :unit_system, "metric")
+
+      # Unit-baked names lie once unit_system can vary. Cross-system
+      # comparisons go through Fillup.find_equivalent, not this index.
+      rename_column_if_exists(conn, :fillups,       :quantity_liters,  :quantity)
+      rename_column_if_exists(conn, :fillups,       :l_per_100km,      :fuel_economy)
+      rename_column_if_exists(conn, :trip_searches, :kilometers,       :distance)
+      rename_column_if_exists(conn, :trip_searches, :liters_used,      :fuel_used)
+      rename_column_if_exists(conn, :trip_searches, :l_per_100km,      :fuel_economy)
+      rename_column_if_exists(conn, :saved_trips,   :base_kilometers,  :base_distance)
+
+      rebuild_fillups_dedup_index(conn)
+
       Vehicle.reset_column_information
       Fillup.reset_column_information
+      SavedTrip.reset_column_information
+      TripSearch.reset_column_information
       GasbuddySetting.reset_column_information
       SyncRun.reset_column_information
       SyncLogEntry.reset_column_information
+      AppSetting.reset_column_information
+    end
+
+    def self.rename_column_if_exists(conn, table, from, to)
+      return unless conn.column_exists?(table, from)
+      return if conn.column_exists?(table, to)
+
+      conn.rename_column(table, from, to)
+    end
+
+    def self.rebuild_fillups_dedup_index(conn)
+      desired = ["vehicle_id", "filled_at", "odometer", "quantity", "unit_system", "currency"]
+      existing = conn.indexes(:fillups).find { |i| i.name == "idx_fillups_dedup" }
+      return if existing && existing.columns == desired && existing.unique
+
+      conn.remove_index(:fillups, name: "idx_fillups_dedup") if existing
+      conn.add_index(
+        :fillups,
+        [:vehicle_id, :filled_at, :odometer, :quantity, :unit_system, :currency],
+        unique: true,
+        name: "idx_fillups_dedup",
+      )
+    end
+
+    def self.add_tagged_column(conn, table, column, default_value)
+      return if conn.column_exists?(table, column)
+
+      conn.add_column(table, column, :string, default: default_value)
+      conn.execute("UPDATE #{table} SET #{column} = #{conn.quote(default_value)} WHERE #{column} IS NULL")
     end
 
     # SQLite supports `CREATE UNIQUE INDEX ... WHERE` (partial index);

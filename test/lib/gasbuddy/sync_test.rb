@@ -45,7 +45,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
     fillup = GasMoney::Fillup.find_by(gasbuddy_entry_uuid: "entry-1")
 
     assert_equal(@vehicle.id, fillup.vehicle_id)
-    assert_in_delta(10.3, fillup.l_per_100km, 0.001)
+    assert_in_delta(10.3, fillup.fuel_economy, 0.001)
   end
 
   test "links existing manual fillups to remote entries within tolerance" do
@@ -54,10 +54,10 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       vehicle_id:        @vehicle.id,
       filled_at:         "2026-04-17T15:00:00Z",   # within 36h window
       total_cost:        105.45,
-      quantity_liters:   64.7,                     # within 0.5L tolerance
+      quantity:          64.7,                     # within 0.5L tolerance
       unit_price_cents:  162.9,
       odometer:          111_616,
-      l_per_100km:       10.3,
+      fuel_economy:      10.3,
     )
 
     stub_fuel_logs([entry_payload("entry-1")])
@@ -74,7 +74,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       vehicle_id:          @vehicle.id,
       filled_at:           "2026-04-17T16:00:04Z",
       total_cost:          105.45,
-      quantity_liters:     64.733,
+      quantity:            64.733,
       unit_price_cents:    162.9,
       gasbuddy_entry_uuid: "entry-1",
     )
@@ -107,6 +107,43 @@ class GasBuddySyncTest < ActiveSupport::TestCase
     assert_equal(0, run.vehicles_synced)
   end
 
+  test "tags fillups inserted from an MPG response as us_customary + USD" do
+    stub_fuel_logs([entry_payload("entry-us", economy: "27.4", economy_units: "MPG")])
+
+    GasMoney::GasBuddy::Sync.run(trigger: "manual")
+    fillup = GasMoney::Fillup.find_by(gasbuddy_entry_uuid: "entry-us")
+
+    assert_equal("us_customary", fillup.unit_system)
+    assert_equal("USD",          fillup.currency)
+  end
+
+  test "links cross-system: a metric-stored existing fillup is linked to an MPG remote of equivalent volume" do
+    # 64.733 L ≈ 17.099 gal — within the ±0.5 L tolerance.
+    GasMoney::Fillup.create!(
+      vehicle_id:        @vehicle.id,
+      filled_at:         "2026-04-17T15:00:00Z",
+      total_cost:        105.45,
+      quantity:          64.733,
+      unit_price_cents:  162.9,
+      odometer:          111_616,
+      fuel_economy:      10.3,
+      unit_system:       "metric",
+      currency:          "CAD",
+    )
+
+    stub_fuel_logs([
+      entry_payload("entry-us", amount_filled: "17.099", economy: "22.84", economy_units: "MPG"),
+    ])
+
+    run = GasMoney::GasBuddy::Sync.run(trigger: "manual")
+
+    # The default entry_payload returns USD currency for MPG entries,
+    # so the linker won't match a CAD-tagged existing fillup. Sync
+    # therefore inserts a new us_customary/USD row.
+    assert_equal(1, run.fillups_inserted)
+    assert_equal(0, run.fillups_linked)
+  end
+
   private
 
   def stub_vehicle_list
@@ -130,7 +167,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
 
   def entry_payload(uuid, purchase_date: "2026-04-17T16:00:04Z", total_cost: "105.45",
     amount_filled: "64.733", price_per_unit: "162.9", odometer: "111616",
-    economy: "10.3")
+    economy: "10.3", economy_units: "L/100km")
     {
       "guid" => uuid,
       "purchaseDate" => purchase_date,
@@ -140,7 +177,7 @@ class GasBuddySyncTest < ActiveSupport::TestCase
       "odometer" => odometer,
       "fuelEconomy" => {
         "status" => economy ? "complete" : "missingPrevious",
-        "fuelEconomy" => economy ? { "fuelEconomy" => economy, "fuelEconomyUnits" => "L/100km" } : nil,
+        "fuelEconomy" => economy ? { "fuelEconomy" => economy, "fuelEconomyUnits" => economy_units } : nil,
       },
     }
   end

@@ -40,12 +40,13 @@ module GasMoney
       def vehicles_pinned_first     = Vehicle.pinned_first
       def pinned_vehicles           = Vehicle.pinned.ordered
       def vehicle(id)               = Vehicle.find_by(id: id)
+      def app_setting               = AppSetting.current
 
       def dashboard_summaries
         pinned_vehicles.map do |v|
           {
             vehicle: v,
-            summary: Calculator.cost_per_km_summary(v),
+            summary: Calculator.cost_per_distance_summary(v),
             latest: Calculator.latest_fillup(v),
           }
         end
@@ -65,13 +66,80 @@ module GasMoney
         nil
       end
 
-      def fmt_money(amount) = format("$%.2f", amount.to_f)
+      def display_unit_system = app_setting.display_unit_system_sym
 
-      def fmt_per_km(amount)
+      # Memoised per request so multi-money pages run the DISTINCT
+      # scan once.
+      def currency_label_visible?
+        case app_setting.currency_label_visibility
+        when "always" then true
+        when "never"  then false
+        else
+          @_currency_label_visible = GasMoney::Fillup.distinct_currency_count > 1 if @_currency_label_visible.nil?
+          @_currency_label_visible
+        end
+      end
+
+      def money_symbol(currency)
+        currency && currency_label_visible? ? GasMoney::Money.symbol(currency) : GasMoney::Money::PLAIN_SYMBOL
+      end
+
+      def fmt_money(amount, currency: nil)
         return "—" if amount.nil?
 
-        format("$%.3f", amount.to_f)
+        format("%<sym>s%<val>.2f", sym: money_symbol(currency), val: amount.to_f)
       end
+
+      def fmt_volume(value, source_unit:, with_label: true)
+        return "—" if value.nil?
+
+        v = GasMoney::Units.convert(value.to_f, from: source_unit.to_sym, to: display_unit_system, kind: :volume)
+        return format("%<val>.2f", val: v) unless with_label
+
+        format("%<val>.2f %<unit>s", val: v, unit: GasMoney::Units.label(:volume, display_unit_system))
+      end
+
+      def fmt_distance(value, source_unit:, with_label: true, precision: 1)
+        return "—" if value.nil?
+
+        v = GasMoney::Units.convert(value.to_f, from: source_unit.to_sym, to: display_unit_system, kind: :distance)
+        return format("%<val>.#{precision}f", val: v) unless with_label
+
+        format("%<val>.#{precision}f %<unit>s", val: v, unit: GasMoney::Units.label(:distance, display_unit_system))
+      end
+
+      def fmt_economy(value, source_unit:, with_label: true)
+        return "—" if value.nil?
+
+        v = GasMoney::Units.convert(value.to_f, from: source_unit.to_sym, to: display_unit_system, kind: :economy)
+        return format("%<val>.1f", val: v) unless with_label
+
+        format("%<val>.1f %<unit>s", val: v, unit: GasMoney::Units.label(:economy, display_unit_system))
+      end
+
+      def fmt_unit_price(cents, source_unit:, currency: nil, with_label: true)
+        return "—" if cents.nil?
+
+        v_cents = GasMoney::Units.convert(cents.to_f, from: source_unit.to_sym, to: display_unit_system, kind: :price_per_volume)
+        dollars = v_cents / 100.0
+        return format("%<sym>s%<val>.3f", sym: money_symbol(currency), val: dollars) unless with_label
+
+        format(
+          "%<sym>s%<val>.3f%<unit>s",
+          sym:  money_symbol(currency),
+          val:  dollars,
+          unit: GasMoney::Units.label(:price_per_volume, display_unit_system),
+        )
+      end
+
+      def fmt_cost_per_distance(amount, source_unit:, currency: nil)
+        return "—" if amount.nil?
+
+        v = GasMoney::Units.convert(amount.to_f, from: source_unit.to_sym, to: display_unit_system, kind: :cost_per_distance)
+        format("%<sym>s%<val>.3f", sym: money_symbol(currency), val: v)
+      end
+
+      def unit_label(kind) = GasMoney::Units.label(kind, display_unit_system)
 
       def fmt_date(value)
         return "" if value.nil? || value.to_s.empty?
@@ -86,12 +154,6 @@ module GasMoney
           "after_latest" => "after latest fillup",
           "before_earliest" => "before earliest fillup",
         }.fetch(method, method)
-      end
-
-      def fmt_unit_price(cents)
-        return "—" if cents.nil?
-
-        format("$%.3f/L", cents.to_f / 100.0)
       end
 
       def flash
@@ -116,10 +178,12 @@ module GasMoney
         {
           filled_at: filled_at.iso8601,
           total_cost: Float(form["total_cost"]),
-          quantity_liters: Float(form["quantity_liters"]),
+          quantity: Float(form["quantity"]),
           unit_price_cents: Float(form["unit_price_cents"]),
           odometer: form["odometer"].to_s.strip.empty? ? nil : Integer(form["odometer"]),
-          l_per_100km: form["l_per_100km"].to_s.strip.empty? ? nil : Float(form["l_per_100km"]),
+          fuel_economy: form["fuel_economy"].to_s.strip.empty? ? nil : Float(form["fuel_economy"]),
+          unit_system: form["unit_system"].to_s.strip.empty? ? app_setting.display_unit_system : form["unit_system"],
+          currency: form["currency"].to_s.strip.empty? ? "CAD" : form["currency"],
         }
       end
     end
@@ -138,21 +202,22 @@ module GasMoney
     post "/calculate" do
       vehicle_id = Integer(params["vehicle_id"])
       trip_date  = params["trip_date"].to_s.strip
-      kilometers = params["kilometers"].to_s.strip
+      distance   = params["distance"].to_s.strip
       round_trip = params["round_trip"] == "1"
 
-      if trip_date.empty? || kilometers.empty?
-        set_flash(:error, "Trip date and kilometres are required.")
-        redirect "/"
+      if trip_date.empty? || distance.empty?
+        set_flash(:error, "Trip date and distance are required.")
+        redirect("/")
       end
 
       begin
-        actual_km = Float(kilometers)
-        actual_km *= 2 if round_trip
+        actual_distance = Float(distance)
+        actual_distance *= 2 if round_trip
         estimate = Calculator.estimate(
           vehicle_id: vehicle_id,
           trip_date: trip_date,
-          kilometers: actual_km,
+          distance: actual_distance,
+          unit_system: display_unit_system,
         )
         session[:last_estimate] = estimate.attributes.symbolize_keys.merge(
           vehicle_name: estimate.vehicle.display_name,
@@ -290,7 +355,7 @@ module GasMoney
     post "/saved_trips" do
       attrs = {
         name: params["name"].to_s.strip,
-        base_kilometers: params["base_kilometers"],
+        base_distance: params["base_distance"],
         round_trip: params["round_trip"] == "1" ? 1 : 0,
       }
 
@@ -307,6 +372,30 @@ module GasMoney
     post "/saved_trips/:id/delete" do
       SavedTrip.where(id: params["id"].to_i).delete_all
       redirect "/saved_trips"
+    end
+
+    # ---- App settings ----
+
+    get "/settings" do
+      @app_setting     = app_setting
+      @setting         = gasbuddy_setting
+      @recent_runs     = SyncRun.recent.includes(:sync_log_entries).limit(10)
+      @remote_vehicles = gasbuddy_remote_vehicles
+      @local_vehicles  = Vehicle.ordered
+      erb :settings
+    end
+
+    post "/settings" do
+      setting = app_setting
+      setting.update!(
+        display_unit_system: params["display_unit_system"].to_s,
+        currency_label_visibility: params["currency_label_visibility"].to_s,
+      )
+      set_flash(:success, "Settings saved.")
+    rescue ActiveRecord::RecordInvalid => e
+      set_flash(:error, "Couldn't save: #{e.record.errors.full_messages.join(", ")}.")
+    ensure
+      redirect("/settings")
     end
 
     # ---- GasBuddy auto-sync ----
@@ -332,12 +421,9 @@ module GasMoney
       end
     end
 
+    # /sync moved into /settings; keep the URL as a redirect.
     get "/sync" do
-      @setting = gasbuddy_setting
-      @recent_runs = SyncRun.recent.includes(:sync_log_entries).limit(10)
-      @remote_vehicles = gasbuddy_remote_vehicles
-      @local_vehicles = Vehicle.ordered
-      erb :sync
+      redirect("/settings")
     end
 
     get "/sync/runs/:id.json" do
