@@ -26,6 +26,14 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
 
   if [[ "$remote_sha" != "$ZERO_SHA" ]]; then
+    # Without this guard, an unfetched remote tip makes the git diff below
+    # die with a cryptic "fatal: bad object <sha>" and abort the push.
+    if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+      echo "⚠️  Remote tip ${remote_sha} is not in your local repo." >&2
+      echo "   The remote has advanced — run 'git fetch' (then rebase/merge) and push again." >&2
+      exit 1
+    fi
+
     # Mirror the same release-irrelevant rules CI uses. Keep both lists
     # in sync — the hook is the fast-feedback layer; CI is the gate.
     changed="$(git diff --name-only "$remote_sha" "$local_sha")"
