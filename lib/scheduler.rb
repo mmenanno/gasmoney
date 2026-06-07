@@ -36,8 +36,8 @@ module GasMoney
         ActiveRecord::Base.connection_pool.with_connection do
           GasBuddy::Sync.run(trigger: trigger, mode: mode, logger: logger)
         end
-      rescue StandardError => e
-        logger&.error("[scheduler] sync thread crashed: #{e.message}")
+      rescue StandardError => exception
+        logger&.error("[scheduler] sync thread crashed: #{exception.message}")
       end
     end
 
@@ -49,8 +49,8 @@ module GasMoney
 
         GasBuddy::Sync.run(trigger: "scheduled", logger: logger)
       end
-    rescue StandardError => e
-      logger&.error("[scheduler] daily sync failed: #{e.message}")
+    rescue StandardError => exception
+      logger&.error("[scheduler] daily sync failed: #{exception.message}")
     end
   end
 end

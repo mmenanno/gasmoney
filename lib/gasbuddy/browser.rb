@@ -90,14 +90,14 @@ module GasMoney
         end
 
         run_login(browser, username, password)
-      rescue Ferrum::DeadBrowserError, Ferrum::ProcessTimeoutError => e
+      rescue Ferrum::DeadBrowserError, Ferrum::ProcessTimeoutError => exception
         # When Chromium dies before Ferrum can connect, the only
         # actionable signal is the binary's own stderr. We can't
         # capture that from this side (Ferrum spawns the process), so
         # we point the operator at the container logs and surface the
         # underlying timeout/dead-browser distinction in the message.
         raise LaunchFailed,
-          "Chromium exited before Ferrum could connect (#{e.class.name.split("::").last}: #{e.message}). " \
+          "Chromium exited before Ferrum could connect (#{exception.class.name.split("::").last}: #{exception.message}). " \
           "Inspect chromium stderr in the container logs for the underlying cause."
       ensure
         begin
@@ -244,8 +244,8 @@ module GasMoney
       # CDP call.
       def capture
         yield
-      rescue Ferrum::Error, StandardError => e
-        "<unavailable: #{e.class.name.split("::").last}>"
+      rescue Ferrum::Error, StandardError => exception
+        "<unavailable: #{exception.class.name.split("::").last}>"
       end
 
       def form_ready?(page)

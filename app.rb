@@ -157,10 +157,10 @@ module GasMoney
         session[:last_estimate] = estimate.attributes.symbolize_keys.merge(
           vehicle_name: estimate.vehicle.display_name,
         )
-      rescue Calculator::InsufficientData => e
-        set_flash(:error, "Can't estimate: #{e.message}.")
-      rescue ArgumentError, ActiveRecord::RecordNotFound => e
-        set_flash(:error, "Invalid input: #{e.message}.")
+      rescue Calculator::InsufficientData => exception
+        set_flash(:error, "Can't estimate: #{exception.message}.")
+      rescue ArgumentError, ActiveRecord::RecordNotFound => exception
+        set_flash(:error, "Invalid input: #{exception.message}.")
       end
 
       redirect "/"
@@ -184,8 +184,8 @@ module GasMoney
           pinned:       params["pinned"] == "1",
         )
         set_flash(:success, "Vehicle added.")
-      rescue ActiveRecord::RecordInvalid => e
-        set_flash(:error, "Couldn't save: #{e.record.errors.full_messages.join(", ")}.")
+      rescue ActiveRecord::RecordInvalid => exception
+        set_flash(:error, "Couldn't save: #{exception.record.errors.full_messages.join(", ")}.")
       end
       redirect "/vehicles"
     end
@@ -203,8 +203,8 @@ module GasMoney
           pinned:       params["pinned"] == "1",
         )
         set_flash(:success, "Vehicle updated.")
-      rescue ActiveRecord::RecordInvalid => e
-        set_flash(:error, "Couldn't save: #{e.record.errors.full_messages.join(", ")}.")
+      rescue ActiveRecord::RecordInvalid => exception
+        set_flash(:error, "Couldn't save: #{exception.record.errors.full_messages.join(", ")}.")
       end
       redirect "/vehicles"
     end
@@ -236,10 +236,10 @@ module GasMoney
       attrs = build_fillup_attrs(params)
       Fillup.create!(attrs.merge(vehicle: vehicle))
       set_flash(:success, "Fillup added.")
-    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
-      set_flash(:error, "Couldn't save: #{e.message}.")
-    rescue ArgumentError, TypeError => e
-      set_flash(:error, "Invalid input: #{e.message}.")
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => exception
+      set_flash(:error, "Couldn't save: #{exception.message}.")
+    rescue ArgumentError, TypeError => exception
+      set_flash(:error, "Invalid input: #{exception.message}.")
     ensure
       redirect("/vehicles/#{params["id"].to_i}/fillups")
     end
@@ -297,8 +297,8 @@ module GasMoney
       begin
         SavedTrip.create!(attrs)
         set_flash(:success, "Saved trip \"#{attrs[:name]}\".")
-      rescue ActiveRecord::RecordInvalid => e
-        set_flash(:error, "Couldn't save: #{e.record.errors.full_messages.join(", ")}.")
+      rescue ActiveRecord::RecordInvalid => exception
+        set_flash(:error, "Couldn't save: #{exception.record.errors.full_messages.join(", ")}.")
       end
 
       redirect "/saved_trips"
@@ -458,8 +458,8 @@ module GasMoney
       result = GasMoney::GasBuddy::Garage.refresh!
       set_flash(:success, "Found #{result.total} #{result.total == 1 ? "vehicle" : "vehicles"} on GasBuddy (#{result.inserted} new).")
       redirect("/sync")
-    rescue StandardError => e
-      set_flash(:error, "Couldn't refresh garage: #{e.message}")
+    rescue StandardError => exception
+      set_flash(:error, "Couldn't refresh garage: #{exception.message}")
       redirect("/sync")
     end
 
