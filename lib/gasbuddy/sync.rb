@@ -108,8 +108,8 @@ module GasMoney
         )
 
         do_run
-      rescue StandardError => e
-        finalize_failed!(e)
+      rescue StandardError => exception
+        finalize_failed!(exception)
       ensure
         @setting&.update!(last_sync_at: Time.now.utc.iso8601, last_sync_status: status_payload.to_json)
       end
@@ -195,8 +195,8 @@ module GasMoney
 
         @run.log!(:info, "Vehicle #{vehicle.display_name}: #{total_seen} remote entries seen")
         @run.update!(vehicles_synced: @run.vehicles_synced + 1)
-      rescue StandardError => e
-        @run.log!(:error, "Sync failed for #{vehicle.display_name}", detail: { error: e.message, klass: e.class.name })
+      rescue StandardError => exception
+        @run.log!(:error, "Sync failed for #{vehicle.display_name}", detail: { error: exception.message, klass: exception.class.name })
       end
 
       def fetch_year(vehicle, year)
@@ -244,8 +244,8 @@ module GasMoney
         # Race against a parallel/manual import that just inserted the
         # same uuid; treat as already-skipped.
         increment(:fillups_skipped)
-      rescue StandardError => e
-        @run.log!(:error, "Couldn't reconcile entry #{detail.uuid}", detail: { error: e.message })
+      rescue StandardError => exception
+        @run.log!(:error, "Couldn't reconcile entry #{detail.uuid}", detail: { error: exception.message })
       end
 
       # Looks for an existing fillup that probably represents the same

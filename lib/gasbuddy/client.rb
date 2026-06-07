@@ -95,10 +95,10 @@ module GasMoney
         @setting.reload
         @connection = nil
         log(:info, "Stored #{cookies.size} cookies; UA = #{result[:user_agent].to_s.slice(0, 60)}")
-      rescue Browser::LaunchFailed => e
-        raise Error, "Couldn't launch headless browser: #{e.message}"
-      rescue Browser::LoginFailed => e
-        raise AuthRequired, "Login failed: #{e.message}"
+      rescue Browser::LaunchFailed => exception
+        raise Error, "Couldn't launch headless browser: #{exception.message}"
+      rescue Browser::LoginFailed => exception
+        raise AuthRequired, "Login failed: #{exception.message}"
       end
 
       private
