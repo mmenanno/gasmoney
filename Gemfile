@@ -20,7 +20,7 @@ gem "faraday",            "~> 2.14"
 gem "faraday-cookie_jar", "~> 0.0.7"
 gem "ferrum",             "~> 0.16"
 gem "http-cookie",        "~> 1.0"
-gem "nokogiri",           "~> 1.18"
+gem "nokogiri",           "~> 1.19"
 gem "rufus-scheduler",    "~> 3.9"
 
 group :development, :test do
