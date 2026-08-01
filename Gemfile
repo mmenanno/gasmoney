@@ -8,7 +8,7 @@ gem "rackup",        "~> 2.2"
 gem "sinatra",       "~> 4.1"
 
 # Data
-gem "activerecord",  "~> 8.0"
+gem "activerecord",  "~> 8.1"
 gem "csv",           "~> 3.3"
 gem "sqlite3",       "~> 2.9"
 
