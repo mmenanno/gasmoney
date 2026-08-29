@@ -18,7 +18,7 @@ gem "sqlite3",       "~> 2.9"
 # React form's JSON XHR), rufus-scheduler for the daily cron.
 gem "faraday",            "~> 2.14"
 gem "faraday-cookie_jar", "~> 0.0.7"
-gem "ferrum",             "~> 0.16"
+gem "ferrum",             "~> 0.18"
 gem "http-cookie",        "~> 1.0"
 gem "nokogiri",           "~> 1.19"
 gem "rufus-scheduler",    "~> 3.9"
@@ -33,5 +33,5 @@ group :test do
   gem "minitest", "~> 6.0"
   gem "minitest-reporters"
   gem "rack-test"
-  gem "webmock", "~> 3.25"
+  gem "webmock", "~> 3.26"
 end
