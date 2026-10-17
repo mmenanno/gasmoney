@@ -10,7 +10,7 @@ gem "sinatra",       "~> 4.1"
 # Data
 gem "activerecord",  "~> 8.1"
 gem "csv",           "~> 3.3"
-gem "sqlite3",       "~> 2.9"
+gem "sqlite3",       "~> 2.10"
 
 # GasBuddy auto-sync: Faraday for the HTTP client + cookie persistence,
 # Nokogiri for parsing the server-rendered vehicle list page, Ferrum to
@@ -33,5 +33,5 @@ group :test do
   gem "minitest", "~> 6.0"
   gem "minitest-reporters"
   gem "rack-test"
-  gem "webmock", "~> 3.25"
+  gem "webmock", "~> 3.32"
 end
