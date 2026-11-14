@@ -30,7 +30,7 @@ group :development, :test do
 end
 
 group :test do
-  gem "minitest", "~> 6.0"
+  gem "minitest", "~> 6.1"
   gem "minitest-reporters"
   gem "rack-test"
   gem "webmock", "~> 3.25"
