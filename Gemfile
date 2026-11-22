@@ -3,9 +3,9 @@
 source "https://rubygems.org"
 
 # Web
-gem "puma",          "~> 8.0"
+gem "puma",          "~> 8.1"
 gem "rackup",        "~> 2.2"
-gem "sinatra",       "~> 4.1"
+gem "sinatra",       "~> 4.2"
 
 # Data
 gem "activerecord",  "~> 8.1"
@@ -33,5 +33,5 @@ group :test do
   gem "minitest", "~> 6.1"
   gem "minitest-reporters"
   gem "rack-test"
-  gem "webmock", "~> 3.25"
+  gem "webmock", "~> 3.35"
 end
